@@ -279,6 +279,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               />
             </View>
 
+            <ScrollView style={dashboardStyles.sidebarScroll} contentContainerStyle={dashboardStyles.sidebarScrollContent} showsVerticalScrollIndicator={false}>
             {!sidebarCollapsed && <View style={dashboardStyles.packhouse}>
               <View style={dashboardStyles.packhouseIcon}><Text style={dashboardStyles.navIcon}>♧</Text></View>
               <View style={dashboardStyles.packhouseCopy}>
@@ -303,12 +304,13 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
             </View>
 
             {!sidebarCollapsed && <Text style={[dashboardStyles.navSection, dashboardStyles.adminSection]}>ADMINISTRACIÓN</Text>}
-            <Pressable accessibilityLabel="Usuarios y roles" style={[dashboardStyles.navItem, sidebarCollapsed && dashboardStyles.navItemCollapsed]} onPress={() => setActiveSection('Usuarios y roles')}>
-              <NavGlyph name="users" />
+            <Pressable accessibilityLabel="Usuarios y roles" style={[dashboardStyles.navItem, sidebarCollapsed && dashboardStyles.navItemCollapsed, activeSection === 'Usuarios y roles' && dashboardStyles.navItemActive]} onPress={() => setActiveSection('Usuarios y roles')}>
+              <NavGlyph name="users" active={activeSection === 'Usuarios y roles'} />
               {!sidebarCollapsed && <Text style={dashboardStyles.navLabel}>Usuarios y roles</Text>}
             </Pressable>
+            </ScrollView>
             <Pressable accessibilityRole="button" accessibilityLabel={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'} onPress={() => setSidebarCollapsed((collapsed) => !collapsed)} style={[dashboardStyles.collapseButton, sidebarCollapsed && dashboardStyles.navItemCollapsed]}>
-              <Text style={dashboardStyles.collapseGlyph}>{sidebarCollapsed ? '›' : '‹'}</Text>
+              <NavGlyph name={sidebarCollapsed ? 'expand' : 'collapse'} />
               {!sidebarCollapsed && <Text style={dashboardStyles.collapseLabel}>Contraer menú</Text>}
             </Pressable>
           </View>
@@ -334,7 +336,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
             </View>
           </View>
 
-          {activeSection === 'Productores' ? <ProducerScreen compact={compact} /> : activeSection === 'Huertas' ? <OrchardScreen compact={compact} /> : activeSection === 'Embarques' ? <ShipmentScreen compact={compact} /> : activeSection === 'Pagos' ? <PaymentScreen compact={compact} /> : activeSection === 'Reportes' ? <ReportsScreen compact={compact} /> : <ScrollView contentContainerStyle={[dashboardStyles.content, compact && dashboardStyles.contentCompact]} showsVerticalScrollIndicator={false}>
+          {activeSection === 'Usuarios y roles' ? <UsersRolesScreen compact={compact} /> : activeSection === 'Productores' ? <ProducerScreen compact={compact} /> : activeSection === 'Huertas' ? <OrchardScreen compact={compact} /> : activeSection === 'Embarques' ? <ShipmentScreen compact={compact} /> : activeSection === 'Pagos' ? <PaymentScreen compact={compact} /> : activeSection === 'Reportes' ? <ReportsScreen compact={compact} /> : <ScrollView contentContainerStyle={[dashboardStyles.content, compact && dashboardStyles.contentCompact]} showsVerticalScrollIndicator={false}>
             <View style={dashboardStyles.welcomeRow}>
               <View style={dashboardStyles.welcomeCopy}>
                 <Text style={dashboardStyles.eyebrow}>TU EMPAQUE, DE UN VISTAZO</Text>
@@ -343,7 +345,6 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
               </View>
               <View style={dashboardStyles.welcomeActions}>
                 <View style={dashboardStyles.datePill}><Text style={dashboardStyles.dateIcon}>▦</Text><Text style={dashboardStyles.dateText}>3 oct, 2026</Text></View>
-                <Pressable style={dashboardStyles.newButton}><Text style={dashboardStyles.newButtonText}>＋  Nueva recepción</Text></Pressable>
               </View>
             </View>
 
@@ -365,8 +366,7 @@ function AdminDashboard({ onSignOut }: { onSignOut: () => void }) {
 
             <View style={[dashboardStyles.lowerGrid, compact && dashboardStyles.lowerGridCompact]}>
               <View style={dashboardStyles.lowerPanel}>
-                <View style={dashboardStyles.panelHeader}><View><Text style={dashboardStyles.panelTitle}>Recepción de fruta</Text><Text style={dashboardStyles.panelSubtitle}>Un campo que no deja de crecer.</Text></View><Pressable style={dashboardStyles.weekSelect}><Text style={dashboardStyles.weekText}>▦  Esta semana  ⌄</Text></Pressable></View>
-                <View style={dashboardStyles.receiptSummary}><Text style={dashboardStyles.receiptValue}>32,840 <Text style={dashboardStyles.receiptUnit}>kg</Text></Text><Text style={dashboardStyles.receiptCaption}>recibidos esta semana</Text></View>
+                <View style={dashboardStyles.panelHeader}><View><Text style={dashboardStyles.panelTitle}>Recepción de fruta</Text><Text style={dashboardStyles.panelSubtitle}>Kilos recibidos por día.</Text></View></View>
                 <ReceptionChart />
               </View>
               <View style={dashboardStyles.lowerPanel}>
@@ -533,6 +533,96 @@ const initialProducers: Producer[] = [
   { nombres: 'Leticia', apellidos: 'Pérez Silva', folio: 'PR-006', origen: 'Jalpa, Zacatecas', rfc: 'PESL920108XXX', huerta: null, kilos: '890 kg', active: true },
 ];
 const producerFullName = (producer: Producer) => `${producer.nombres} ${producer.apellidos}`;
+
+type AccountRole = 'Productor' | 'Empacador';
+type UserAccount = { id: string; name: string; email: string; role: AccountRole; producerFolio?: string; active: boolean; password: string };
+const initialUserAccounts: UserAccount[] = [
+  ...initialProducers.filter((producer) => producer.active).map((producer, index): UserAccount => ({ id: `USR-${producer.folio}`, name: producerFullName(producer), email: `${producer.nombres.toLowerCase().replaceAll(' ', '.')}@guavalink.mx`, role: 'Productor', producerFolio: producer.folio, active: true, password: `Demo-${index + 1}-Guava` })),
+  { id: 'USR-EMP-001', name: 'Alejandro Cruz', email: 'alejandro.cruz@guavalink.mx', role: 'Empacador', active: true, password: 'Demo-Empacador-1' },
+  { id: 'USR-EMP-002', name: 'Equipo de recepción', email: 'recepcion@guavalink.mx', role: 'Empacador', active: true, password: 'Demo-Empacador-2' },
+];
+
+function UsersRolesScreen({ compact }: { compact: boolean }) {
+  const [accounts, setAccounts] = useState(initialUserAccounts);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'Todos' | 'Activas' | 'Inactivas'>('Todos');
+  const [roleFilter, setRoleFilter] = useState<'Todos' | AccountRole>('Todos');
+  const [mode, setMode] = useState<'new' | 'password' | null>(null);
+  const [role, setRole] = useState<AccountRole>('Empacador');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [producerFolio, setProducerFolio] = useState('');
+  const [target, setTarget] = useState<UserAccount | null>(null);
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [notice, setNotice] = useState('');
+
+  const linkedProducerFolios = accounts.filter((account) => account.role === 'Productor').map((account) => account.producerFolio);
+  const availableProducers = initialProducers.filter((producer) => producer.active && !linkedProducerFolios.includes(producer.folio));
+  const visible = accounts.filter((account) => {
+    const matchesText = `${account.name} ${account.email} ${account.role} ${account.producerFolio ?? ''}`.toLowerCase().includes(query.toLowerCase());
+    return matchesText && (filter === 'Todos' || account.active === (filter === 'Activas')) && (roleFilter === 'Todos' || account.role === roleFilter);
+  });
+  const openNew = () => {
+    setRole('Empacador'); setName(''); setEmail(''); setPassword(''); setProducerFolio(availableProducers[0]?.folio ?? ''); setNotice(''); setMode('new');
+  };
+  const openPassword = (account: UserAccount) => {
+    setTarget(account); setPassword(''); setConfirmation(''); setNotice(''); setMode('password');
+  };
+  const saveNew = () => {
+    if (role === 'Productor') {
+      const producer = initialProducers.find((item) => item.folio === producerFolio && item.active);
+      if (!producer || linkedProducerFolios.includes(producerFolio)) { setNotice('Selecciona un productor activo que aún no tenga cuenta.'); return; }
+      if (password.trim().length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
+      const account: UserAccount = { id: `USR-${producer.folio}`, name: producerFullName(producer), email: email.trim().toLowerCase(), role, producerFolio: producer.folio, active: true, password };
+      setAccounts((current) => [...current, account]); setMode(null); return;
+    }
+    if (!name.trim() || !email.trim() || !email.includes('@')) { setNotice('Escribe el nombre y un correo electrónico válido.'); return; }
+    if (password.trim().length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (accounts.some((account) => account.email.toLowerCase() === email.trim().toLowerCase())) { setNotice('Ya existe una cuenta con ese correo.'); return; }
+    setAccounts((current) => [...current, { id: `USR-EMP-${String(current.filter((account) => account.role === 'Empacador').length + 1).padStart(3, '0')}-${Date.now()}`, name: name.trim(), email: email.trim().toLowerCase(), role: 'Empacador', active: true, password }]); setMode(null);
+  };
+  const savePassword = () => {
+    if (!target) return;
+    if (password.trim().length < 8) { setNotice('La contraseña debe tener al menos 8 caracteres.'); return; }
+    if (password !== confirmation) { setNotice('Las contraseñas no coinciden.'); return; }
+    setAccounts((current) => current.map((account) => account.id === target.id ? { ...account, password } : account)); setMode(null);
+  };
+  const toggleAccount = (account: UserAccount) => {
+    setAccounts((current) => current.map((item) => item.id === account.id ? { ...item, active: !item.active } : item));
+  };
+
+  return <ScrollView contentContainerStyle={[dashboardStyles.producerContent, compact && dashboardStyles.contentCompact]} showsVerticalScrollIndicator={false}>
+    <View style={[dashboardStyles.producerHeading, compact && dashboardStyles.producerHeadingCompact]}>
+      <View style={dashboardStyles.welcomeCopy}><Text style={dashboardStyles.eyebrow}>MI EMPAQUE</Text><Text style={[dashboardStyles.producerTitle, compact && dashboardStyles.producerTitleCompact]}>Usuarios y roles</Text><Text style={dashboardStyles.subtitle}>Administra accesos de productores y personal de recepción.</Text></View>
+      <Pressable style={dashboardStyles.newButton} onPress={openNew}><Text style={dashboardStyles.newButtonText}>＋  Nueva cuenta</Text></Pressable>
+    </View>
+    <View style={dashboardStyles.producerStats}>
+      <View style={[dashboardStyles.producerStatCard, compact && dashboardStyles.producerStatCardCompact]}><View style={dashboardStyles.statTop}><Text style={dashboardStyles.statLabel}>Cuentas registradas</Text><View style={dashboardStyles.statIcon}><NavGlyph name="users" /></View></View><Text style={dashboardStyles.statValue}>{String(accounts.length).padStart(2, '0')}</Text><Text style={dashboardStyles.producerStatNote}>Accesos del empaque</Text></View>
+      <View style={[dashboardStyles.producerStatCard, compact && dashboardStyles.producerStatCardCompact]}><View style={dashboardStyles.statTop}><Text style={dashboardStyles.statLabel}>Cuentas activas</Text><View style={dashboardStyles.statIcon}><Text style={dashboardStyles.statGlyph}>✓</Text></View></View><Text style={dashboardStyles.statValue}>{String(accounts.filter((account) => account.active).length).padStart(2, '0')}</Text><Text style={dashboardStyles.producerStatNote}>Pueden iniciar sesión</Text></View>
+    </View>
+    <View style={[dashboardStyles.producerToolbar, compact && dashboardStyles.producerToolbarCompact]}>
+      <View style={[dashboardStyles.producerSearch, compact && dashboardStyles.producerSearchCompact]}><Text style={dashboardStyles.searchGlyph}>⌕</Text><TextInput value={query} onChangeText={setQuery} placeholder="Buscar por nombre, correo o folio..." placeholderTextColor="#86868b" style={dashboardStyles.producerSearchInput} accessibilityLabel="Buscar cuentas" /></View>
+      <View style={dashboardStyles.userFilters}>
+        <Pressable style={dashboardStyles.filterButton} onPress={() => setRoleFilter((value) => value === 'Todos' ? 'Productor' : value === 'Productor' ? 'Empacador' : 'Todos')}><Text style={dashboardStyles.filterText}>{roleFilter}  ⌄</Text></Pressable>
+        <Pressable style={dashboardStyles.filterButton} onPress={() => setFilter((value) => value === 'Todos' ? 'Activas' : value === 'Activas' ? 'Inactivas' : 'Todos')}><Text style={dashboardStyles.filterText}>{filter}  ⌄</Text></Pressable>
+      </View>
+    </View>
+    {compact ? <View style={dashboardStyles.producerCards}>{visible.map((account) => <View key={account.id} style={dashboardStyles.producerCard}><View style={dashboardStyles.producerMobileHeading}><View style={dashboardStyles.producerAvatar}><Text style={dashboardStyles.producerInitials}>{account.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</Text></View><View style={dashboardStyles.producerMobileCopy}><Text style={dashboardStyles.producerName}>{account.name}</Text><Text style={dashboardStyles.producerMeta}>{account.email}</Text><View style={dashboardStyles.userRoleLine}><NavGlyph name={account.role === 'Productor' ? 'role-producer' : 'role-packer'} /><Text style={dashboardStyles.userRoleLabel}>{account.role}{account.producerFolio ? ` · ${account.producerFolio}` : ''}</Text></View></View><Text style={[dashboardStyles.statusBadge, account.active ? dashboardStyles.statusActive : dashboardStyles.statusInactive]}>{account.active ? 'Activa' : 'Inactiva'}</Text></View><View style={dashboardStyles.producerMobileFooter}><Pressable accessibilityRole="button" accessibilityLabel={`Cambiar contraseña de ${account.name}`} style={dashboardStyles.userActionButton} onPress={() => openPassword(account)}><NavGlyph name="key" active /><Text style={dashboardStyles.userActionText}>Contraseña</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${account.active ? 'Dar de baja' : 'Reactivar'} cuenta de ${account.name}`} style={dashboardStyles.userActionButton} onPress={() => toggleAccount(account)}><NavGlyph name={account.active ? 'disable' : 'enable'} active /><Text style={dashboardStyles.userActionText}>{account.active ? 'Dar de baja' : 'Reactivar'}</Text></Pressable></View></View>)}</View> : <ScrollView horizontal showsHorizontalScrollIndicator><View style={dashboardStyles.userTable}><View style={[dashboardStyles.producerTableRow, dashboardStyles.producerTableHeader]}><Text style={[dashboardStyles.producerColumn, dashboardStyles.userNameCol, dashboardStyles.tableHeading]}>USUARIO</Text><Text style={[dashboardStyles.producerColumn, dashboardStyles.userEmailCol, dashboardStyles.tableHeading]}>CORREO</Text><Text style={[dashboardStyles.producerColumn, dashboardStyles.userRoleCol, dashboardStyles.tableHeading]}>ROL / FOLIO</Text><Text style={[dashboardStyles.producerColumn, dashboardStyles.userStatusCol, dashboardStyles.tableHeading]}>ESTADO</Text><Text style={[dashboardStyles.producerColumn, dashboardStyles.userActionsCol, dashboardStyles.tableHeading]}>ACCIONES</Text></View>{visible.map((account) => <View key={account.id} style={dashboardStyles.producerTableRow}><View style={[dashboardStyles.producerColumn, dashboardStyles.userNameCol, dashboardStyles.producerNameCell]}><View style={dashboardStyles.producerAvatar}><Text style={dashboardStyles.producerInitials}>{account.name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</Text></View><Text style={dashboardStyles.producerName}>{account.name}</Text></View><Text style={[dashboardStyles.producerColumn, dashboardStyles.userEmailCol, dashboardStyles.producerMeta]}>{account.email}</Text><View style={[dashboardStyles.producerColumn, dashboardStyles.userRoleCol]}><View style={dashboardStyles.userRoleLine}><NavGlyph name={account.role === 'Productor' ? 'role-producer' : 'role-packer'} /><Text style={dashboardStyles.userRoleLabel}>{account.role}</Text></View><Text style={dashboardStyles.producerSubMeta}>{account.producerFolio ?? 'Personal de recepción'}</Text></View><View style={[dashboardStyles.producerColumn, dashboardStyles.userStatusCol]}><Text style={[dashboardStyles.statusBadge, account.active ? dashboardStyles.statusActive : dashboardStyles.statusInactive]}>{account.active ? 'Activa' : 'Inactiva'}</Text></View><View style={[dashboardStyles.producerColumn, dashboardStyles.userActionsCol]}><Pressable accessibilityRole="button" accessibilityLabel={`Cambiar contraseña de ${account.name}`} style={dashboardStyles.userActionButton} onPress={() => openPassword(account)}><NavGlyph name="key" active /><Text style={dashboardStyles.userActionText}>Contraseña</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`${account.active ? 'Dar de baja' : 'Reactivar'} cuenta de ${account.name}`} style={dashboardStyles.userActionButton} onPress={() => toggleAccount(account)}><NavGlyph name={account.active ? 'disable' : 'enable'} active /><Text style={dashboardStyles.userActionText}>{account.active ? 'Dar de baja' : 'Reactivar'}</Text></Pressable></View></View>)}</View></ScrollView>}
+    {visible.length === 0 && <Text style={dashboardStyles.emptyText}>No hay cuentas que coincidan con la búsqueda.</Text>}
+    <Text style={dashboardStyles.reportFootnote}>Datos locales de demostración. La gestión real de accesos requiere conectar un servicio de autenticación.</Text>
+    <Modal visible={mode !== null} transparent animationType="fade" onRequestClose={() => setMode(null)}><View style={dashboardStyles.modalBackdrop}><ScrollView style={dashboardStyles.formScroll} contentContainerStyle={dashboardStyles.formScrollContent} keyboardShouldPersistTaps="handled"><View style={dashboardStyles.formCard}>
+      <Text style={dashboardStyles.panelTitle}>{mode === 'password' ? 'Cambiar contraseña' : 'Crear cuenta'}</Text><Text style={dashboardStyles.formHint}>{mode === 'password' ? `Actualiza el acceso de ${target?.name}.` : 'Asigna el acceso correspondiente para el empaque.'}</Text>
+      {mode === 'new' && <><Text style={dashboardStyles.fieldLabel}>Tipo de cuenta</Text><View style={dashboardStyles.userRolePicker}>{(['Productor', 'Empacador'] as AccountRole[]).map((value) => <Pressable key={value} onPress={() => { setRole(value); setNotice(''); }} style={[dashboardStyles.paymentStatusOption, role === value && dashboardStyles.paymentStatusOptionSelected]}><Text style={[dashboardStyles.paymentStatusOptionText, role === value && dashboardStyles.paymentStatusOptionTextSelected]}>{value}</Text></Pressable>)}</View>
+        {role === 'Productor' ? <><Text style={dashboardStyles.fieldLabel}>Productor registrado</Text>{availableProducers.length ? <View style={dashboardStyles.producerPicker}>{availableProducers.map((producer) => <Pressable key={producer.folio} onPress={() => { setProducerFolio(producer.folio); setEmail(`${producer.nombres.toLowerCase().replaceAll(' ', '.')}@guavalink.mx`); }} style={[dashboardStyles.producerChoice, producerFolio === producer.folio && dashboardStyles.producerChoiceSelected]}><Text style={[dashboardStyles.producerChoiceText, producerFolio === producer.folio && dashboardStyles.producerChoiceTextSelected]}>{producerFullName(producer)} · {producer.folio}</Text></Pressable>)}</View> : <Text style={dashboardStyles.userNoProducers}>No hay productores activos sin cuenta.</Text>}<Text style={dashboardStyles.fieldLabel}>Correo electrónico</Text><TextInput value={email} onChangeText={setEmail} placeholder="productor@correo.mx" placeholderTextColor="#86868b" style={dashboardStyles.formInput} keyboardType="email-address" autoCapitalize="none" /></> : <><Text style={dashboardStyles.fieldLabel}>Nombre del empacador</Text><TextInput value={name} onChangeText={setName} placeholder="Nombre completo" placeholderTextColor="#86868b" style={dashboardStyles.formInput} autoCapitalize="words" /><Text style={dashboardStyles.fieldLabel}>Correo electrónico</Text><TextInput value={email} onChangeText={setEmail} placeholder="nombre@guavalink.mx" placeholderTextColor="#86868b" style={dashboardStyles.formInput} keyboardType="email-address" autoCapitalize="none" /></>}
+        <Text style={dashboardStyles.fieldLabel}>Contraseña inicial</Text><TextInput value={password} onChangeText={setPassword} placeholder="Mínimo 8 caracteres" placeholderTextColor="#86868b" style={dashboardStyles.formInput} secureTextEntry autoCapitalize="none" />
+      </>}
+      {mode === 'password' && <><Text style={dashboardStyles.fieldLabel}>Nueva contraseña</Text><TextInput value={password} onChangeText={setPassword} placeholder="Mínimo 8 caracteres" placeholderTextColor="#86868b" style={dashboardStyles.formInput} secureTextEntry autoCapitalize="none" /><Text style={dashboardStyles.fieldLabel}>Confirmar contraseña</Text><TextInput value={confirmation} onChangeText={setConfirmation} placeholder="Repite la contraseña" placeholderTextColor="#86868b" style={dashboardStyles.formInput} secureTextEntry autoCapitalize="none" /></>}
+      {!!notice && <Text style={dashboardStyles.userNotice}>{notice}</Text>}
+      <View style={dashboardStyles.formActions}><Pressable onPress={() => setMode(null)}><Text style={dashboardStyles.cancelText}>Cancelar</Text></Pressable><Pressable onPress={mode === 'password' ? savePassword : saveNew} style={dashboardStyles.newButton}><Text style={dashboardStyles.newButtonText}>{mode === 'password' ? 'Actualizar' : 'Crear cuenta'}</Text></Pressable></View>
+    </View></ScrollView></View></Modal>
+  </ScrollView>;
+}
 
 const demoOrchards: Orchard[] = [
   { name: 'La Esperanza', folio: 'HRT-001', producer: 'José Martínez López', hectares: 8.5, tenure: 'Propia', latitude: 19.420, longitude: -102.060, active: true },
@@ -769,6 +859,13 @@ function NavGlyph({ name, active = false }: { name: string; active?: boolean }) 
         {name === 'payments' && <><RectIcon common={common} /><Path {...common} d="M3 9h18M16 14h2M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" /></>}
         {name === 'reports' && <><Path {...common} d="M4 19h16M6 16v-4M10 16V8M14 16v-6M18 16V5" /></>}
         {name === 'users' && <><Circle {...common} cx="9" cy="8" r="3" /><Path {...common} d="M3.5 20v-1.5A5.5 5.5 0 0 1 9 13h1a5.5 5.5 0 0 1 5.5 5.5V20M16 5.5a3 3 0 0 1 0 5.8M17 14a4.5 4.5 0 0 1 3.5 4.5V20" /></>}
+        {name === 'role-producer' && <><Circle {...common} cx="12" cy="7" r="3" /><Path {...common} d="M5 20v-1.5a7 7 0 0 1 14 0V20M12 13v4m-2-2h4" /></>}
+        {name === 'role-packer' && <><Path {...common} d="M4 20h16M6 20V9l6-5 6 5v11M9 20v-5h6v5M9 10h.01M15 10h.01" /></>}
+        {name === 'collapse' && <Path {...common} d="m14 5-7 7 7 7M20 5v14" />}
+        {name === 'expand' && <Path {...common} d="m10 5 7 7-7 7M4 5v14" />}
+        {name === 'key' && <><Circle {...common} cx="8" cy="15" r="4" /><Path {...common} d="m11 12 8-8 2 2-2 2 2 2-3 3-2-2-3 3M8 15h.01" /></>}
+        {name === 'disable' && <><Circle {...common} cx="12" cy="12" r="9" /><Path {...common} d="m6 6 12 12" /></>}
+        {name === 'enable' && <><Circle {...common} cx="12" cy="12" r="9" /><Path {...common} d="m8 12 2.5 2.5L16.5 9" /></>}
       </Svg>
     </View>
   );
@@ -791,29 +888,43 @@ function StatGlyph({ name }: { name: string }) {
   );
 }
 
+const receptionChartData = {
+  'Esta semana': [
+    { label: 'Lun', kilos: 4800 }, { label: 'Mar', kilos: 6200 }, { label: 'Mié', kilos: 5500 }, { label: 'Jue', kilos: 7800 }, { label: 'Vie', kilos: 6600 }, { label: 'Sáb', kilos: 9200 }, { label: 'Dom', kilos: 8550 },
+  ],
+  'Semana anterior': [
+    { label: 'Lun', kilos: 4100 }, { label: 'Mar', kilos: 5300 }, { label: 'Mié', kilos: 6100 }, { label: 'Jue', kilos: 5800 }, { label: 'Vie', kilos: 7200 }, { label: 'Sáb', kilos: 6900 }, { label: 'Dom', kilos: 7800 },
+  ],
+};
+
 function ReceptionChart() {
-  const points = [104, 76, 88, 53, 69, 27, 39];
-  const xPositions = [42, 130, 218, 306, 394, 482, 570];
-  const coords = points.map((y, index) => `${xPositions[index]},${y}`).join(' ');
+  const [period, setPeriod] = useState<keyof typeof receptionChartData>('Esta semana');
+  const [selectedIndex, setSelectedIndex] = useState(5);
+  const data = receptionChartData[period];
+  const total = data.reduce((sum, item) => sum + item.kilos, 0);
+  const previousTotal = receptionChartData['Semana anterior'].reduce((sum, item) => sum + item.kilos, 0);
+  const growth = Math.round(((total - previousTotal) / previousTotal) * 1000) / 10;
+  const max = Math.ceil(Math.max(...data.map((item) => item.kilos)) / 2500) * 2500;
+  const coordinates = data.map((item, index) => ({ x: 44 + (index * 530) / (data.length - 1), y: 190 - (item.kilos / max) * 150 }));
+  const linePath = coordinates.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  const areaPath = `${linePath} L ${coordinates[coordinates.length - 1].x} 194 L ${coordinates[0].x} 194 Z`;
+  const selected = data[selectedIndex];
   return (
     <View style={dashboardStyles.chartWrap}>
-      <View style={dashboardStyles.chartTotalRow}>
-        <Text style={dashboardStyles.chartTotal}>48,650 <Text style={dashboardStyles.chartTotalUnit}>kg</Text></Text>
-        <Text style={dashboardStyles.chartGrowth}>↗ 12.8% <Text style={dashboardStyles.chartGrowthMuted}>vs. semana anterior</Text></Text>
+      <View style={dashboardStyles.chartToolbar}>
+        <View style={dashboardStyles.chartTotalRow}><Text style={dashboardStyles.chartTotal}>{total.toLocaleString('es-MX')} <Text style={dashboardStyles.chartTotalUnit}>kg</Text></Text><Text style={[dashboardStyles.chartGrowth, growth < 0 && dashboardStyles.chartGrowthMuted]}>{growth > 0 ? '↗ ' : growth < 0 ? '↘ ' : ''}{Math.abs(growth)}% <Text style={dashboardStyles.chartGrowthMuted}>vs. semana anterior</Text></Text></View>
+        <View style={dashboardStyles.chartPeriodSwitch}>{(Object.keys(receptionChartData) as (keyof typeof receptionChartData)[]).map((option) => <Pressable key={option} onPress={() => { setPeriod(option); setSelectedIndex(5); }} style={[dashboardStyles.chartPeriodOption, period === option && dashboardStyles.chartPeriodOptionActive]}><Text style={[dashboardStyles.chartPeriodText, period === option && dashboardStyles.chartPeriodTextActive]}>{option}</Text></Pressable>)}</View>
       </View>
       <Svg width="100%" height={220} viewBox="0 0 610 220" preserveAspectRatio="none">
         <Defs><LinearGradient id="receptionArea" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#0071e3" stopOpacity="0.2" /><Stop offset="1" stopColor="#0071e3" stopOpacity="0" /></LinearGradient></Defs>
-        {[30, 75, 120, 165, 210].map((y, index) => <g key={y}><Line x1="42" y1={y} x2="596" y2={y} stroke="#333336" strokeDasharray="3 5" strokeWidth="1" /><SvgText x="31" y={y + 3} fill="#86868b" fontSize="9" textAnchor="end">{['10k', '7.5k', '5k', '2.5k', '0'][index]}</SvgText></g>)}
-        <Path d={`M ${coords} L 570 210 L 42 210 Z`} fill="url(#receptionArea)" />
-        <Path d="M 42 104 C 75 92, 99 76, 130 76 S 190 94, 218 88 S 280 47, 306 53 S 370 78, 394 69 S 456 25, 482 27 S 548 34, 570 39" fill="none" stroke="#2997ff" strokeWidth="2.4" strokeLinecap="round" />
-        <Line x1="482" y1="27" x2="482" y2="210" stroke="#86868b" strokeWidth="1" />
-        <Circle cx="482" cy="27" r="5" fill="#0071e3" stroke="#ffffff" strokeWidth="2" />
-        <Path d="M 387 144 h 105 a 8 8 0 0 1 8 8 v 43 h -113 a 8 8 0 0 1 -8 -8 v -35 a 8 8 0 0 1 8 -8" fill="#1d1d1f" stroke="#333336" />
-        <SvgText x="400" y="164" fill="#f5f5f7" fontSize="10">Sáb</SvgText>
-        <SvgText x="400" y="182" fill="#2997ff" fontSize="9">Recepción: 9,200 kg</SvgText>
-        {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day, index) => <SvgText key={day} x={xPositions[index]} y="218" fill="#86868b" fontSize="9" textAnchor="middle">{day}</SvgText>)}
+        {[0, 1, 2, 3].map((step) => { const y = 190 - (step * 50); const value = Math.round((max * step) / 3); return <g key={step}><Line x1="42" y1={y} x2="596" y2={y} stroke="#333336" strokeDasharray="3 5" strokeWidth="1" /><SvgText x="34" y={y + 3} fill="#86868b" fontSize="9" textAnchor="end">{value === 0 ? '0' : `${(value / 1000).toFixed(value % 1000 ? 1 : 0)}k`}</SvgText></g>; })}
+        <Path d={areaPath} fill="url(#receptionArea)" />
+        <Path d={linePath} fill="none" stroke="#2997ff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        {coordinates.map((point, index) => <g key={data[index].label} onClick={() => setSelectedIndex(index)}><Circle cx={point.x} cy={point.y} r={index === selectedIndex ? 6 : 4} fill={index === selectedIndex ? '#0071e3' : '#2997ff'} stroke="#ffffff" strokeWidth={index === selectedIndex ? 2 : 0} /><Circle cx={point.x} cy={point.y} r={17} fill="transparent" /></g>)}
+        {data.map((item, index) => <SvgText key={item.label} x={coordinates[index].x} y="216" fill={index === selectedIndex ? '#f5f5f7' : '#86868b'} fontSize="9" textAnchor="middle">{item.label}</SvgText>)}
       </Svg>
-      <View style={dashboardStyles.chartLegend}><View style={dashboardStyles.legendDot} /><Text style={dashboardStyles.legendText}>Kilos recibidos</Text></View>
+      <View style={dashboardStyles.chartSelection}><Text style={dashboardStyles.chartSelectedLabel}>Recepción del {selected.label}</Text><Text style={dashboardStyles.chartSelectedValue}>{selected.kilos.toLocaleString('es-MX')} kg</Text></View>
+      <View style={dashboardStyles.chartLegend}><View style={dashboardStyles.legendDot} /><Text style={dashboardStyles.legendText}>Kilos recibidos por día</Text></View>
     </View>
   );
 }
@@ -831,26 +942,28 @@ function ShipmentRow({ name, detail, progress }: { name: string; detail: string;
 const dashboardStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#000000' },
   shell: { flex: 1, flexDirection: 'row', backgroundColor: '#000000' },
-  sidebar: { width: 236, backgroundColor: '#080808', borderRightWidth: 1, borderRightColor: '#292929', paddingHorizontal: 20, paddingTop: 20 },
-  sidebarCollapsed: { width: 76, paddingHorizontal: 12 },
-  brand: { height: 50, flexDirection: 'row', alignItems: 'center', marginBottom: 26 },
+  sidebar: { width: 208, flexBasis: 208, flexGrow: 0, flexShrink: 0, minHeight: 0, overflow: 'hidden', backgroundColor: '#080808', borderRightWidth: 1, borderRightColor: '#292929', paddingHorizontal: 14, paddingTop: 12 },
+  sidebarCollapsed: { width: 58, flexBasis: 58, paddingHorizontal: 8 },
+  sidebarScroll: { flex: 1, minHeight: 0 },
+  sidebarScrollContent: { paddingBottom: 12 },
+  brand: { height: 42, flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   brandCollapsed: { justifyContent: 'center' },
   brandCompact: { flexDirection: 'row', alignItems: 'center' },
-  brandLogo: { width: 188, height: 48 },
-  brandLogoCollapsed: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#f5f5f7' },
+  brandLogo: { width: 174, height: 40 },
+  brandLogoCollapsed: { width: 38, height: 38 },
   brandLogoCompact: { width: 174, height: 44 },
   brandMark: { width: 36, height: 36, borderRadius: 11, backgroundColor: '#f5f5f7', alignItems: 'center', justifyContent: 'center' },
   brandLeaf: { color: '#1d1d1f', fontSize: 21 },
   brandName: { color: '#f5f5f7', fontSize: 23, fontWeight: '600', letterSpacing: -0.6 },
-  packhouse: { minHeight: 86, borderRadius: 18, backgroundColor: '#1d1d1f', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 26 },
+  packhouse: { minHeight: 64, borderRadius: 14, backgroundColor: '#1d1d1f', padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
   packhouseIcon: { width: 34, height: 34, borderRadius: 9, backgroundColor: '#333336', alignItems: 'center', justifyContent: 'center' },
   packhouseCopy: { flex: 1, gap: 5 },
   packhouseName: { color: '#f5f5f7', fontSize: 12, fontWeight: '600' },
   packhousePlace: { color: '#86868b', fontSize: 11, lineHeight: 16 },
   chevron: { color: '#86868b' },
-  navSection: { color: '#86868b', fontSize: 10, letterSpacing: 0.6, marginHorizontal: 12, marginBottom: 12 },
-  navList: { gap: 4 },
-  navItem: { minHeight: 42, flexDirection: 'row', alignItems: 'center', gap: 13, paddingHorizontal: 12, borderRadius: 999, marginBottom: 2 },
+  navSection: { color: '#86868b', fontSize: 10, letterSpacing: 0.6, marginHorizontal: 10, marginBottom: 7 },
+  navList: { gap: 2 },
+  navItem: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, borderRadius: 999, marginBottom: 1 },
   navItemCollapsed: { justifyContent: 'center', paddingHorizontal: 0 },
   navItemActive: { backgroundColor: '#333336' },
   navIcon: { color: '#86868b', width: 18, textAlign: 'center', fontSize: 16 },
@@ -859,8 +972,8 @@ const dashboardStyles = StyleSheet.create({
   navLabel: { color: '#cccccc', fontSize: 13, flex: 1 },
   navLabelActive: { color: '#ffffff', fontWeight: '600' },
   navCount: { color: '#cccccc', backgroundColor: '#1d1d1f', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10 },
-  adminSection: { marginTop: 24 },
-  collapseButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 999, marginTop: 16 },
+  adminSection: { marginTop: 14 },
+  collapseButton: { minHeight: 38, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 10, borderRadius: 999, marginTop: 6, marginBottom: 8 },
   collapseGlyph: { width: 20, color: '#86868b', fontSize: 23, textAlign: 'center' },
   collapseLabel: { color: '#86868b', fontSize: 12 },
   mainArea: { flex: 1, minWidth: 0 },
@@ -936,6 +1049,20 @@ const dashboardStyles = StyleSheet.create({
   producerStatNote: { color: '#86868b', fontSize: 11, marginTop: 4 },
   producerToolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 22 },
   producerToolbarCompact: { flexDirection: 'column', alignItems: 'stretch', marginBottom: 16 },
+  userFilters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  userTable: { minWidth: 980 },
+  userNameCol: { width: 245 },
+  userEmailCol: { width: 280 },
+  userRoleCol: { width: 180 },
+  userStatusCol: { width: 125 },
+  userActionsCol: { width: 235, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 8 },
+  userRoleLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  userRoleLabel: { color: '#cccccc', fontSize: 11 },
+  userActionButton: { minHeight: 36, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: '#424245', borderRadius: 9999, backgroundColor: '#1d1d1f' },
+  userActionText: { color: '#f5f5f7', fontSize: 10, fontWeight: '500' },
+  userRolePicker: { flexDirection: 'row', gap: 9 },
+  userNoProducers: { color: '#f2a7a7', fontSize: 12, paddingVertical: 8 },
+  userNotice: { color: '#f2a7a7', fontSize: 12, lineHeight: 18 },
   producerSearch: { height: 46, width: 320, maxWidth: '100%', borderRadius: 9999, backgroundColor: '#1d1d1f', borderWidth: 1, borderColor: '#333336', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 },
   producerSearchCompact: { width: '100%' },
   searchGlyph: { color: '#86868b', fontSize: 20 },
@@ -1064,6 +1191,15 @@ const dashboardStyles = StyleSheet.create({
   receiptUnit: { color: '#86868b', fontSize: 14, fontWeight: '400' },
   receiptCaption: { color: '#86868b', fontSize: 11 },
   chartWrap: { marginTop: 22 },
+  chartToolbar: { gap: 12, marginBottom: 8 },
+  chartPeriodSwitch: { flexDirection: 'row', alignSelf: 'flex-start', padding: 3, gap: 3, borderWidth: 1, borderColor: '#333336', borderRadius: 9999, backgroundColor: '#111111' },
+  chartPeriodOption: { minHeight: 30, paddingHorizontal: 12, justifyContent: 'center', borderRadius: 9999 },
+  chartPeriodOptionActive: { backgroundColor: '#333336' },
+  chartPeriodText: { color: '#86868b', fontSize: 10 },
+  chartPeriodTextActive: { color: '#f5f5f7' },
+  chartSelection: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: '#333336', borderRadius: 10, backgroundColor: '#141414' },
+  chartSelectedLabel: { color: '#86868b', fontSize: 11 },
+  chartSelectedValue: { color: '#f5f5f7', fontSize: 12, fontWeight: '600' },
   chartTotalRow: { flexDirection: 'row', alignItems: 'baseline', gap: 10, marginBottom: 6 },
   chartTotal: { color: '#f5f5f7', fontSize: 30, letterSpacing: -0.7, fontWeight: '600' },
   chartTotalUnit: { color: '#86868b', fontSize: 13, fontWeight: '400' },
