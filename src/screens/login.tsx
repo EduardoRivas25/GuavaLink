@@ -6,9 +6,9 @@ import { styles } from '@/styles/login';
 
 export default function LoginScreen() {
   const { width, height } = useWindowDimensions();
-  const compact = width < 700;
+  const compact = width < 900;
   const narrow = width < 380;
-  const tablet = width >= 700 && width < 900;
+  const tablet = width >= 900 && width < 1100;
   const shortScreen = !compact && height < 820;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

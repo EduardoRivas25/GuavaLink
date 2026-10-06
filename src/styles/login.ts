@@ -183,7 +183,7 @@ export const styles = StyleSheet.create({
   headlineCompact: { fontSize: 42, lineHeight: 46, letterSpacing: -1.7 },
   headlineNarrow: { fontSize: 36, lineHeight: 40 },
   loginCardTablet: { width: 390, padding: 27 },
-  loginCardCompact: { width: '100%', padding: 25, borderRadius: 24 },
+  loginCardCompact: { width: '100%', maxWidth: 480, alignSelf: 'center', padding: 25, borderRadius: 24 },
   loginCardNarrow: { padding: 20 },
   footerCompact: { minHeight: 54 },
 });
