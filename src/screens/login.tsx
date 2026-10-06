@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { demoAccounts, findDemoAccount, type DemoAccount } from '@/data/demo-accounts';
 import AdminDashboard from '@/screens/dashboard';
+import PackerHome from '@/screens/packer-home';
+import ProducerHome from '@/screens/producer-home';
 import { styles } from '@/styles/login';
 
 export default function LoginScreen() {
@@ -15,11 +18,16 @@ export default function LoginScreen() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [signedIn, setSignedIn] = useState(false);
+  const [activeAccount, setActiveAccount] = useState<DemoAccount | null>(null);
 
   const handleSignIn = () => {
     if (!email.trim() || !password) {
       setMessage('Escribe tu correo y contraseña para continuar.');
+      return;
+    }
+    const account = findDemoAccount(email);
+    if (!account) {
+      setMessage('Este correo no tiene una cuenta de demostración. Elige uno de los accesos de prueba.');
       return;
     }
 
@@ -27,11 +35,21 @@ export default function LoginScreen() {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
-      setSignedIn(true);
+      setActiveAccount(account);
     }, 250);
   };
 
-  if (signedIn) return <AdminDashboard onSignOut={() => setSignedIn(false)} />;
+  const handleSignOut = () => {
+    setActiveAccount(null);
+    setEmail('');
+    setPassword('');
+    setPasswordVisible(false);
+    setMessage('');
+  };
+
+  if (activeAccount?.role === 'admin') return <AdminDashboard onSignOut={handleSignOut} />;
+  if (activeAccount?.role === 'productor') return <ProducerHome account={activeAccount} onSignOut={handleSignOut} />;
+  if (activeAccount?.role === 'empacador') return <PackerHome account={activeAccount} onSignOut={handleSignOut} />;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -193,9 +211,20 @@ export default function LoginScreen() {
 
                 {message ? <Text accessibilityLiveRegion="polite" style={styles.message}>{message}</Text> : null}
 
+                <View style={styles.demoAccounts}>
+                  <Text style={styles.demoTitle}>ACCESOS DE PRUEBA</Text>
+                  {demoAccounts.map((account) => (
+                    <Pressable key={account.email} accessibilityRole="button" accessibilityLabel={`Usar cuenta de ${account.role}`} onPress={() => { setEmail(account.email); setMessage(''); }} style={styles.demoAccount}>
+                      <Text style={styles.demoRole}>{account.role === 'admin' ? 'Administrador' : account.role === 'productor' ? 'Productor' : 'Empacador'}</Text>
+                      <Text style={styles.demoEmail}>{account.email}</Text>
+                    </Pressable>
+                  ))}
+                  <Text style={styles.demoHint}>Para esta demostración, escribe cualquier contraseña.</Text>
+                </View>
+
                 <View style={styles.secureNote}>
                   <Text style={styles.lockIcon}>◇</Text>
-                  <Text style={styles.secureText}>Acceso seguro para personal y productores</Text>
+                  <Text style={styles.secureText}>Acceso de demostración para personal y productores</Text>
                 </View>
               </View>
             </View>
