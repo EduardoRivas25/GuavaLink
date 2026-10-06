@@ -84,9 +84,9 @@ export default function ReportsScreen({ compact }: { compact: boolean }) {
         <View style={dashboardStyles.reportIcon}><NavGlyph name={report.icon} active /></View>
         <Text style={dashboardStyles.reportTitle}>{report.title}</Text><Text style={dashboardStyles.reportDescription}>{report.description}</Text>
         <View style={[dashboardStyles.reportDates, compact && dashboardStyles.reportDatesCompact]}>
-          <TextInput value={from} onChangeText={(value) => { setFrom(value); setRangeMessage(''); }} placeholder="DD/MM/AAAA" placeholderTextColor="#86868b" accessibilityLabel={`Fecha inicial para ${report.title}`} style={dashboardStyles.reportDateInput} />
+          <TextInput value={from} onChangeText={(value) => { setFrom(value); setRangeMessage(''); }} placeholder="DD/MM/AAAA" placeholderTextColor="#86868b" accessibilityLabel={`Fecha inicial para ${report.title}`} style={[dashboardStyles.reportDateInput, compact && dashboardStyles.reportDateInputCompact]} />
           <Text style={dashboardStyles.reportDash}>—</Text>
-          <TextInput value={to} onChangeText={(value) => { setTo(value); setRangeMessage(''); }} placeholder="DD/MM/AAAA" placeholderTextColor="#86868b" accessibilityLabel={`Fecha final para ${report.title}`} style={dashboardStyles.reportDateInput} />
+          <TextInput value={to} onChangeText={(value) => { setTo(value); setRangeMessage(''); }} placeholder="DD/MM/AAAA" placeholderTextColor="#86868b" accessibilityLabel={`Fecha final para ${report.title}`} style={[dashboardStyles.reportDateInput, compact && dashboardStyles.reportDateInputCompact]} />
         </View>
         <Pressable accessibilityRole="button" onPress={() => void download(report)} style={dashboardStyles.reportDownload}><Text style={dashboardStyles.reportDownloadText}>▤  Descargar CSV</Text></Pressable>
       </View>)}
