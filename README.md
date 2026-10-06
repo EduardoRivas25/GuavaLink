@@ -5,8 +5,6 @@
   </picture>
 </p>
 
-<h1 align="center">GuavaLink</h1>
-
 <p align="center">
   <strong>Del campo a cada embarque.</strong><br>
   Una operación de empaque de guayaba más clara, conectada y trazable.
