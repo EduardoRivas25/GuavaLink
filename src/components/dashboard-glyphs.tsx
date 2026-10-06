@@ -34,6 +34,7 @@ export function NavGlyph({ name, active = false }: { name: string; active?: bool
         {name === 'role-packer' && <><Path {...common} d="M4 20h16M6 20V9l6-5 6 5v11M9 20v-5h6v5M9 10h.01M15 10h.01" /></>}
         {name === 'collapse' && <Path {...common} d="m14 5-7 7 7 7M20 5v14" />}
         {name === 'expand' && <Path {...common} d="m10 5 7 7-7 7M4 5v14" />}
+        {name === 'logout' && <Path {...common} d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 7l5 5-5 5M8 12h11" />}
         {name === 'key' && <><Circle {...common} cx="8" cy="15" r="4" /><Path {...common} d="m11 12 8-8 2 2-2 2 2 2-3 3-2-2-3 3M8 15h.01" /></>}
         {name === 'disable' && <><Circle {...common} cx="12" cy="12" r="9" /><Path {...common} d="m6 6 12 12" /></>}
         {name === 'enable' && <><Circle {...common} cx="12" cy="12" r="9" /><Path {...common} d="m8 12 2.5 2.5L16.5 9" /></>}

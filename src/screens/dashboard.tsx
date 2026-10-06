@@ -38,6 +38,10 @@ export default function AdminDashboard({ onSignOut }: { onSignOut: () => void })
     setActiveSection(section);
     setMobileMenuOpen(false);
   };
+  const handleSignOut = () => {
+    setMobileMenuOpen(false);
+    onSignOut();
+  };
 
   return (
     <SafeAreaView style={dashboardStyles.safeArea}>
@@ -85,6 +89,10 @@ export default function AdminDashboard({ onSignOut }: { onSignOut: () => void })
               {!sidebarCollapsed && <Text style={dashboardStyles.navLabel}>Usuarios y roles</Text>}
             </Pressable>
             </ScrollView>
+            <Pressable accessibilityRole="button" accessibilityLabel="Cerrar sesión y volver al inicio" onPress={handleSignOut} style={[dashboardStyles.sidebarSignOut, sidebarCollapsed && dashboardStyles.navItemCollapsed]}>
+              <NavGlyph name="logout" />
+              {!sidebarCollapsed && <Text style={dashboardStyles.sidebarSignOutText}>Cerrar sesión</Text>}
+            </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={sidebarCollapsed ? 'Expandir menú' : 'Contraer menú'} onPress={() => setSidebarCollapsed((collapsed) => !collapsed)} style={[dashboardStyles.collapseButton, sidebarCollapsed && dashboardStyles.navItemCollapsed]}>
               <NavGlyph name={sidebarCollapsed ? 'expand' : 'collapse'} />
               {!sidebarCollapsed && <Text style={dashboardStyles.collapseLabel}>Contraer menú</Text>}
@@ -110,7 +118,7 @@ export default function AdminDashboard({ onSignOut }: { onSignOut: () => void })
                 <NotificationBell />
                 <View style={dashboardStyles.notificationBadge}><Text style={dashboardStyles.notificationBadgeText}>3</Text></View>
               </Pressable>
-              <Pressable accessibilityLabel="Cerrar sesión" onPress={onSignOut} style={dashboardStyles.avatar}><Text style={dashboardStyles.avatarText}>AC</Text></Pressable>
+              <Pressable accessibilityLabel="Cerrar sesión" onPress={handleSignOut} style={dashboardStyles.avatar}><Text style={dashboardStyles.avatarText}>AC</Text></Pressable>
             </View>
           </View>
 
@@ -170,6 +178,12 @@ export default function AdminDashboard({ onSignOut }: { onSignOut: () => void })
               <Text style={[dashboardStyles.navSection, dashboardStyles.adminSection]}>ADMINISTRACIÓN</Text>
               <Pressable accessibilityRole="button" accessibilityState={{ selected: activeSection === 'Usuarios y roles' }} onPress={() => selectSection('Usuarios y roles')} style={[dashboardStyles.mobileNavItem, activeSection === 'Usuarios y roles' && dashboardStyles.navItemActive]}><NavGlyph name="users" active={activeSection === 'Usuarios y roles'} /><Text style={[dashboardStyles.navLabel, activeSection === 'Usuarios y roles' && dashboardStyles.navLabelActive]}>Usuarios y roles</Text></Pressable>
             </ScrollView>
+            <View style={dashboardStyles.mobileMenuFooter}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Cerrar sesión y volver al inicio" onPress={handleSignOut} style={dashboardStyles.mobileNavItem}>
+                <NavGlyph name="logout" />
+                <Text style={dashboardStyles.sidebarSignOutText}>Cerrar sesión</Text>
+              </Pressable>
+            </View>
           </SafeAreaView>
         </View>
       </Modal>
