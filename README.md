@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../brand/logo-horizontal-dark.png">
-    <img src="../brand/logo-horizontal-light.png" alt="Logotipo de GuavaLink" width="340">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/images/logo-horizontal-dark.png">
+    <img src="assets/images/guavalink-logo.png" alt="Logotipo de GuavaLink" width="340">
   </picture>
 </p>
 
@@ -53,6 +53,21 @@ El acceso de prueba reconoce tres correos y abre una vista distinta para cada ro
 
 > **Estado actual:** no hay autenticación real, base de datos ni sincronización. Los cambios hechos en la interfaz son temporales y pueden reiniciarse al cambiar de sección o recargar. Las cuentas del módulo «Usuarios y roles» todavía no controlan el acceso al login.
 
+## Tecnologías utilizadas
+
+La interfaz está construida con estas herramientas:
+
+| | Tecnología | Uso en GuavaLink |
+| :---: | --- | --- |
+| <img src="https://img.shields.io/badge/Expo-1C2024?style=for-the-badge&amp;logo=expo&amp;logoColor=white" alt="Logo de Expo"> | **Expo** | Desarrollo y ejecución de la aplicación en web, Android e iOS. |
+| <img src="https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&amp;logo=react&amp;logoColor=61DAFB" alt="Logo de React"> | **React Native + React** | Componentes y pantallas compartidas entre dispositivos. |
+| <img src="https://img.shields.io/badge/Expo_Router-1C2024?style=for-the-badge&amp;logo=expo&amp;logoColor=white" alt="Logo de Expo"> | **Expo Router** | Navegación y organización de las rutas. |
+| <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&amp;logo=typescript&amp;logoColor=white" alt="Logo de TypeScript"> | **TypeScript** | Tipos para componentes, datos y estados. |
+| <img src="https://img.shields.io/badge/NativeWind-0F172A?style=for-the-badge&amp;logo=tailwindcss&amp;logoColor=38BDF8" alt="Icono de Tailwind CSS utilizado por NativeWind"> | **NativeWind** | Estilos de utilidad para la interfaz. |
+| <img src="https://img.shields.io/badge/Leaflet-199900?style=for-the-badge&amp;logo=leaflet&amp;logoColor=white" alt="Logo de Leaflet"> | **Leaflet** | Mapa interactivo de huertas en la versión web. |
+
+> **Planificado:** la autenticación y los datos compartidos aún no están conectados. La propuesta contempla InsForge y PostgreSQL para una etapa posterior.
+
 ## Probar los tres roles
 
 En el login puedes elegir uno de estos correos. **Cualquier contraseña no vacía** permite entrar durante esta demostración; no uses una contraseña personal.
@@ -93,7 +108,7 @@ La revisión completa de lint todavía señala un error previo en `src/hooks/use
 
 ```text
 GuavaLink/
-├── assets/                  Imágenes usadas por la aplicación
+├── assets/                  Marca e imágenes usadas por la aplicación
 ├── src/
 │   ├── app/                 Entrada y configuración de Expo Router
 │   ├── components/          Mapa, gráfica, iconos y vistas compartidas
@@ -104,12 +119,10 @@ GuavaLink/
 └── README.md
 ```
 
-La marca completa está en [`../brand/`](../brand/README.md). El símbolo **G con hoja** y los verdes identifican a GuavaLink; la interfaz actual utiliza superficies oscuras y acciones azules para mantener el contenido legible.
+Los recursos de marca disponibles en este repositorio están en [`assets/images/`](assets/images/). El símbolo **G con hoja** y los verdes identifican a GuavaLink; la interfaz actual utiliza superficies oscuras y acciones azules para mantener el contenido legible.
 
 <p align="center">
-  <img src="../brand/app-icon-light-180.png" alt="Ícono de GuavaLink para tema claro" width="88">
-  &nbsp;&nbsp;&nbsp;
-  <img src="../brand/app-icon-dark-180.png" alt="Ícono de GuavaLink para tema oscuro" width="88">
+  <img src="assets/images/guavalink-mark.png" alt="Símbolo de GuavaLink" width="88">
 </p>
 
 ## Próximas etapas
@@ -120,4 +133,4 @@ La marca completa está en [`../brand/`](../brand/README.md). El símbolo **G co
 4. **Trazabilidad:** relacionar cada recepción con su huerta, productor, embarque y pago.
 5. **Seguimiento:** historial y avisos para productores; reportes y exportaciones más completos para administración.
 
-El alcance original y los criterios de diseño se describen en el [brief de GuavaLink](../GuavaLink_Brief_Diseno.md) y la [propuesta del proyecto](../Propuesta_Proyecto_GuavaLink_Sinmodificar.docx).
+El alcance original y los criterios de diseño están documentados por separado en el material de planificación del proyecto.
