@@ -1,0 +1,25 @@
+import { StyleSheet } from 'react-native';
+
+export const roleHomeStyles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: '#000000' },
+  header: { minHeight: 68, paddingHorizontal: 38, borderBottomWidth: 1, borderBottomColor: '#292929', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  headerCompact: { paddingHorizontal: 16 },
+  logo: { width: 150, height: 40, flexShrink: 1 },
+  signOutButton: { minHeight: 42, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: '#424245', alignItems: 'center', justifyContent: 'center' },
+  signOutText: { color: '#f5f5f7', fontSize: 12 },
+  content: { width: '100%', maxWidth: 1120, alignSelf: 'center', paddingHorizontal: 38, paddingTop: 64, paddingBottom: 48 },
+  contentCompact: { paddingHorizontal: 18, paddingTop: 40 },
+  eyebrow: { color: '#86868b', fontSize: 11, letterSpacing: 1, marginBottom: 18 },
+  title: { color: '#f5f5f7', fontSize: 46, lineHeight: 54, fontWeight: '600', letterSpacing: -1.4 },
+  titleCompact: { fontSize: 34, lineHeight: 40 },
+  description: { color: '#cccccc', fontSize: 16, lineHeight: 24, marginTop: 12, maxWidth: 600 },
+  account: { color: '#86868b', fontSize: 12, marginTop: 18 },
+  cards: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginTop: 44 },
+  cardsCompact: { flexDirection: 'column', marginTop: 32 },
+  card: { flex: 1, minWidth: 260, minHeight: 190, padding: 26, borderRadius: 26, backgroundColor: '#1d1d1f', justifyContent: 'space-between' },
+  cardCompact: { minWidth: 0, minHeight: 165, padding: 22 },
+  cardTitle: { color: '#cccccc', fontSize: 13 },
+  cardValue: { color: '#f5f5f7', fontSize: 32, fontWeight: '600', letterSpacing: -0.8 },
+  cardDetail: { color: '#86868b', fontSize: 12 },
+  note: { color: '#86868b', fontSize: 12, lineHeight: 18, marginTop: 28 },
+});
