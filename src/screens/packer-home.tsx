@@ -2,6 +2,7 @@
 import { AppBrand } from "@/components/app-brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { roleHomeStyles as styles } from "@/styles/role-home";
+import { getDashboardTheme } from "@/styles/dashboard";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -35,6 +36,7 @@ export default function PackerHome({
   const { width } = useWindowDimensions();
   const compact = width < 800;
   const narrow = width < 430;
+  const theme = getDashboardTheme(isDarkMode);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -45,17 +47,17 @@ export default function PackerHome({
   const [selectedProducer, setSelectedProducer] = useState<any | null>(null);
   const [orchards, setOrchards] = useState<any[]>([]);
   const [registrations, setRegistrations] = useState<any[]>([]);
-  const [shipments, setShipments] = useState<any[]>([]);
   const [selectedOrchard, setSelectedOrchard] = useState<any | null>(null);
   const [selectedRegistration, setSelectedRegistration] = useState<any | null>(
     null,
   );
-  const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
 
   const [qrInput, setQrInput] = useState("");
   const [boxes, setBoxes] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [incidents, setIncidents] = useState("");
+  const [incidentType, setIncidentType] = useState("Otro");
+  const [incidentSeverity, setIncidentSeverity] = useState("Media");
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
 
@@ -65,13 +67,6 @@ export default function PackerHome({
       .select("id,folio,nombres,apellidos,email,status")
       .order("nombres");
     setProducers(prodData || []);
-
-    const { data: shipmentData } = await supabase
-      .from("shipments")
-      .select("*")
-      .neq("status", "Entregado")
-      .order("created_at", { ascending: false });
-    setShipments(shipmentData || []);
 
     const { data: recData } = await supabase
       .from("receptions")
@@ -162,12 +157,13 @@ export default function PackerHome({
       !selectedProducer ||
       !selectedOrchard ||
       !selectedRegistration ||
-      !selectedShipment ||
-      !numBoxes ||
-      !numKg
+      !Number.isInteger(numBoxes) ||
+      numBoxes <= 0 ||
+      !Number.isFinite(numKg) ||
+      numKg <= 0
     ) {
       setStatusMessage(
-        "Escanea al productor y selecciona huerta, registro, embarque, cajas y kilos.",
+        "Escanea al productor, selecciona huerta y registro, e indica cajas y kilos mayores a cero.",
       );
       return;
     }
@@ -191,16 +187,19 @@ export default function PackerHome({
           producer_name: selectedProducerName,
           producer_qr: producerQr,
           qr_code: producerQr,
-          concepto: `Recepción de guayaba · ${selectedShipment.folio}`,
+          concepto: "Recepción de guayaba · Pendiente de embarque",
           orchard_id: selectedOrchard.id,
           orchard_name: selectedOrchard.name,
           export_registration_id: selectedRegistration.id,
           export_registration_number: selectedRegistration.registration_number,
-          shipment_id: selectedShipment.id,
-          shipment_folio: selectedShipment.folio,
+          shipment_id: null,
+          shipment_folio: null,
           boxes: numBoxes,
           weight_kg: numKg,
           incidents: incidents.trim() || "Sin daños",
+          incident_type: incidents.trim() ? incidentType : null,
+          incident_severity: incidents.trim() ? incidentSeverity : null,
+          status: "Pendiente",
           received_by: account?.email || "empacador@gmail.com",
         },
       ]);
@@ -210,8 +209,10 @@ export default function PackerHome({
       setBoxes("");
       setWeightKg("");
       setIncidents("");
+      setIncidentType("Otro");
+      setIncidentSeverity("Media");
       setStatusMessage(
-        `✅ Recepción ${folio} guardada: ${numBoxes} cajas (${numKg} kg) de ${selectedProducerName}.`,
+        `✅ Recepción ${folio} guardada: ${numBoxes} cajas (${numKg} kg) de ${selectedProducerName} · pendiente de validación y embarque.`,
       );
       loadData();
     } catch (err: any) {
@@ -222,11 +223,12 @@ export default function PackerHome({
   };
 
   const t = {
-    bg: isDarkMode ? "#000000" : "#f3f4f6",
-    card: isDarkMode ? "#1d1d1f" : "#ffffff",
-    text: isDarkMode ? "#f5f5f7" : "#111827",
-    sub: isDarkMode ? "#86868b" : "#6b7280",
-    border: isDarkMode ? "#292929" : "#d1d5db",
+    bg: theme.bg,
+    card: theme.card,
+    text: theme.text,
+    sub: theme.sub,
+    border: theme.border,
+    primary: theme.primary,
   };
 
   return (
@@ -263,7 +265,7 @@ export default function PackerHome({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.eyebrow, { color: "#0071e3" }]}>
+        <Text style={[styles.eyebrow, { color: t.primary }]}>
           RECEPCIÓN EN PATIO
         </Text>
         <Text
@@ -466,33 +468,6 @@ export default function PackerHome({
               ))}
             </View>
 
-            <Text style={[styles.label, { color: t.text }]}>
-              Embarque creado por administración *
-            </Text>
-            <View style={styles.chipRow}>
-              {shipments.map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={[
-                    styles.chip,
-                    { borderColor: t.border },
-                    selectedShipment?.id === item.id && styles.chipActive,
-                  ]}
-                  onPress={() => setSelectedShipment(item)}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: t.sub },
-                      selectedShipment?.id === item.id && styles.chipTextActive,
-                    ]}
-                  >
-                    {item.folio} · {item.destination}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Guardar recepción de fruta"
@@ -518,6 +493,65 @@ export default function PackerHome({
               value={incidents}
               onChangeText={setIncidents}
             />
+            {incidents.trim() ? (
+              <>
+                <Text style={[styles.label, { color: t.text }]}>
+                  Tipo de incidencia
+                </Text>
+                <View style={styles.chipRow}>
+                  {["Daño", "Calidad", "Peso", "Documentación", "Otro"].map(
+                    (type) => (
+                      <Pressable
+                        key={type}
+                        style={[
+                          styles.chip,
+                          { borderColor: t.border },
+                          incidentType === type && styles.chipActive,
+                        ]}
+                        onPress={() => setIncidentType(type)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            { color: t.sub },
+                            incidentType === type && styles.chipTextActive,
+                          ]}
+                        >
+                          {type}
+                        </Text>
+                      </Pressable>
+                    ),
+                  )}
+                </View>
+                <Text style={[styles.label, { color: t.text }]}>
+                  Severidad
+                </Text>
+                <View style={styles.chipRow}>
+                  {["Baja", "Media", "Alta"].map((severity) => (
+                    <Pressable
+                      key={severity}
+                      style={[
+                        styles.chip,
+                        { borderColor: t.border },
+                        incidentSeverity === severity && styles.chipActive,
+                      ]}
+                      onPress={() => setIncidentSeverity(severity)}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: t.sub },
+                          incidentSeverity === severity &&
+                            styles.chipTextActive,
+                        ]}
+                      >
+                        {severity}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            ) : null}
           </View>
 
           <View
@@ -548,7 +582,7 @@ export default function PackerHome({
                       {r.producer_name}
                     </Text>
                     <Text style={{ color: t.sub, fontSize: 12, marginTop: 2 }}>
-                      {r.folio} · Embarque: {r.shipment_folio}
+                      {r.folio} · {r.shipment_folio ? `Embarque: ${r.shipment_folio}` : "Pendiente de validación/embarque"}
                     </Text>
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
