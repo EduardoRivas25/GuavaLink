@@ -1,92 +1,115 @@
-import { useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { ActionGlyph, StatGlyph } from "@/components/dashboard-glyphs";
+import { ActionGlyph, AdminGlyph, StatGlyph } from "@/components/dashboard-glyphs";
 import { dashboardStyles } from "@/styles/dashboard";
-import { initialProducers, producerFullName } from "@/screens/producers";
+import { producerFullName } from "@/screens/producers";
+import { supabase } from "@/lib/supabase";
 
 type PaymentStatus = "Pendiente" | "Pagado";
 type Payment = {
+  id: string;
   folio: string;
   producerFolio: string;
+  producerName: string;
   orchard: string;
   amount: number;
   date: string;
   status: PaymentStatus;
 };
-const initialPayments: Payment[] = [
-  {
-    folio: "PAG-001",
-    producerFolio: "PR-001",
-    orchard: "La Esperanza",
-    amount: 22500,
-    date: "03 oct, 2026",
-    status: "Pendiente",
-  },
-  {
-    folio: "PAG-002",
-    producerFolio: "PR-002",
-    orchard: "Los Pinos",
-    amount: 17640,
-    date: "02 oct, 2026",
-    status: "Pendiente",
-  },
-  {
-    folio: "PAG-003",
-    producerFolio: "PR-003",
-    orchard: "Sin huerta asignada",
-    amount: 16260,
-    date: "01 oct, 2026",
-    status: "Pendiente",
-  },
-  {
-    folio: "PAG-004",
-    producerFolio: "PR-004",
-    orchard: "El Encino",
-    amount: 16260,
-    date: "30 sep, 2026",
-    status: "Pendiente",
-  },
-  {
-    folio: "PAG-005",
-    producerFolio: "PR-005",
-    orchard: "La Palma",
-    amount: 16260,
-    date: "29 sep, 2026",
-    status: "Pendiente",
-  },
-  {
-    folio: "PAG-006",
-    producerFolio: "PR-006",
-    orchard: "Los Pinos",
-    amount: 17940,
-    date: "28 sep, 2026",
-    status: "Pagado",
-  },
-];
+type ProducerRecord = {
+  id: string;
+  folio: string;
+  nombres: string | null;
+  apellidos: string | null;
+  active: boolean | null;
+  status: string | null;
+};
+
+const normalizePayment = (row: any): Payment => ({
+  id: String(row.id),
+  folio: row.folio || "",
+  producerFolio: row.producer_folio || "",
+  producerName: row.producer_name || "Productor no disponible",
+  orchard: row.orchard || "Sin huerta asignada",
+  amount: Number(row.amount) || 0,
+  date: row.date || "",
+  status: row.status === "Pagado" ? "Pagado" : "Pendiente",
+});
+
+const localIsoDate = () => {
+  const value = new Date();
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+};
 const formatCurrency = (amount: number) =>
   `$${amount.toLocaleString("es-MX")} MXN`;
 
 export default function PaymentScreen({ compact }: { compact: boolean }) {
-  const [payments, setPayments] = useState(initialPayments);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [producers, setProducers] = useState<ProducerRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"Todos" | PaymentStatus>("Todos");
   const [editing, setEditing] = useState<Payment | null>(null);
-  const [producerFolio, setProducerFolio] = useState("PR-001");
+  const [deleteTarget, setDeleteTarget] = useState<Payment | null>(null);
+  const [producerFolio, setProducerFolio] = useState("");
   const [orchard, setOrchard] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
   const [status, setStatus] = useState<PaymentStatus>("Pendiente");
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [paymentsResult, producersResult] = await Promise.all([
+        supabase
+          .from("payments")
+          .select("*")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("producers")
+          .select("id,folio,nombres,apellidos,active,status")
+          .order("nombres"),
+      ]);
+      if (paymentsResult.error) throw paymentsResult.error;
+      if (producersResult.error) throw producersResult.error;
+      setPayments((paymentsResult.data || []).map(normalizePayment));
+      setProducers((producersResult.data || []) as ProducerRecord[]);
+      setMessage("");
+    } catch (error: any) {
+      setMessage(error.message || "No fue posible cargar los pagos.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const activeProducers = producers.filter(
+    (item) => item.active !== false && item.status !== "Inactivo",
+  );
   const pending = payments.filter((payment) => payment.status === "Pendiente");
   const visible = payments.filter((payment) => {
-    const producer = initialProducers.find(
+    const producer = producers.find(
       (item) => item.folio === payment.producerFolio,
     );
     const matches =
@@ -101,17 +124,22 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
         0,
         ...payments.map((item) => Number(item.folio.split("-")[1]) || 0),
       ) + 1;
+    const defaultProducer = activeProducers[0];
     setEditing(
       payment ?? {
+        id: "",
         folio: `PAG-${String(nextFolio).padStart(3, "0")}`,
-        producerFolio: initialProducers[0].folio,
+        producerFolio: defaultProducer?.folio || "",
+        producerName: defaultProducer
+          ? producerFullName(defaultProducer)
+          : "",
         orchard: "",
         amount: 0,
         date: "",
         status: "Pendiente",
       },
     );
-    setProducerFolio(payment?.producerFolio ?? initialProducers[0].folio);
+    setProducerFolio(payment?.producerFolio ?? defaultProducer?.folio ?? "");
     setOrchard(
       payment?.orchard === "Sin huerta asignada"
         ? ""
@@ -119,20 +147,18 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
     );
     setAmount(payment ? String(payment.amount) : "");
     setDate(
-      payment?.date ??
-        new Date().toLocaleDateString("es-MX", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        }),
+      payment?.date ?? localIsoDate(),
     );
     setStatus(payment?.status ?? "Pendiente");
   };
-  const save = () => {
+  const save = async () => {
     const parsedAmount = Number(amount.replace(/[,$\s]/g, ""));
+    const selectedProducer = producers.find(
+      (item) => item.folio === producerFolio,
+    );
     if (
       !editing ||
-      !producerFolio ||
+      !selectedProducer ||
       !Number.isFinite(parsedAmount) ||
       parsedAmount <= 0 ||
       !date.trim()
@@ -143,47 +169,122 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
       );
       return;
     }
-    const saved: Payment = {
-      ...editing,
-      producerFolio,
+    const payload = {
+      folio: editing.folio,
+      producer_folio: selectedProducer.folio,
+      producer_name: producerFullName(selectedProducer),
       orchard: orchard.trim() || "Sin huerta asignada",
       amount: parsedAmount,
       date: date.trim(),
       status,
     };
-    setPayments((items) =>
-      items.some((item) => item.folio === editing.folio)
-        ? items.map((item) => (item.folio === editing.folio ? saved : item))
-        : [...items, saved],
-    );
-    setEditing(null);
+    setSaving(true);
+    try {
+      const { data, error } = editing.id
+        ? await supabase
+            .from("payments")
+            .update(payload)
+            .eq("id", editing.id)
+            .select("id")
+            .maybeSingle()
+        : await supabase
+            .from("payments")
+            .insert([payload])
+            .select("id")
+            .single();
+      if (error) throw error;
+      if (!data) throw new Error("Supabase no permitió guardar el pago.");
+      setEditing(null);
+      await loadData();
+      setMessage("✅ Pago guardado correctamente.");
+    } catch (error: any) {
+      setMessage(error.message || "No fue posible guardar el pago.");
+    } finally {
+      setSaving(false);
+    }
   };
   const producerName = (payment: Payment) => {
-    const producer = initialProducers.find(
+    const producer = producers.find(
       (item) => item.folio === payment.producerFolio,
     );
-    return producer ? producerFullName(producer) : "Productor eliminado";
+    return producer ? producerFullName(producer) : payment.producerName;
   };
   const statusStyle = (value: PaymentStatus) =>
     value === "Pagado"
       ? dashboardStyles.paymentPaid
       : dashboardStyles.paymentPending;
-  const removePayment = (payment: Payment) =>
-    Alert.alert(
-      "Eliminar pago",
-      `¿Quieres eliminar el pago ${payment.folio}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: () =>
-            setPayments((items) =>
-              items.filter((item) => item.folio !== payment.folio),
-            ),
-        },
-      ],
+  const markAsPaid = async (payment: Payment) => {
+    const { data, error } = await supabase
+      .from("payments")
+      .update({ status: "Pagado" })
+      .eq("id", payment.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) {
+      setMessage(error?.message || "No fue posible registrar el pago.");
+      return;
+    }
+    setPayments((items) =>
+      items.map((item) =>
+        item.id === payment.id ? { ...item, status: "Pagado" } : item,
+      ),
     );
+    setMessage("✅ Pago marcado como pagado.");
+  };
+
+  const removePayment = async () => {
+    if (!deleteTarget) return;
+    setSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("payments")
+        .delete()
+        .eq("id", deleteTarget.id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Supabase no permitió eliminar el pago.");
+      setPayments((items) =>
+        items.filter((item) => item.id !== deleteTarget.id),
+      );
+      setDeleteTarget(null);
+      setMessage("✅ Pago eliminado correctamente.");
+    } catch (error: any) {
+      setDeleteTarget(null);
+      setMessage(error.message || "No fue posible eliminar el pago.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const exportPayments = async () => {
+    const rows = [
+      ["Folio", "Productor", "Folio productor", "Huerta", "Importe MXN", "Fecha", "Estado"],
+      ...payments.map((payment) => [
+        payment.folio,
+        producerName(payment),
+        payment.producerFolio,
+        payment.orchard,
+        String(payment.amount),
+        payment.date,
+        payment.status,
+      ]),
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map((value) => `"${value.replace(/"/g, '""')}"`).join(",")).join("\r\n")}`;
+    if (Platform.OS === "web") {
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `guavalink-pagos-${localIsoDate()}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return;
+    }
+    await Share.share({ title: "Pagos GuavaLink.csv", message: csv });
+  };
 
   return (
     <ScrollView
@@ -221,23 +322,32 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
         >
           <Pressable
             style={dashboardStyles.exportButton}
-            onPress={() =>
-              Alert.alert(
-                "Exportar pagos",
-                "La exportación estará disponible al conectar los datos del empaque.",
-              )
-            }
+            onPress={() => void exportPayments()}
           >
-            <Text style={dashboardStyles.exportText}>⇩ Exportar</Text>
+            <AdminGlyph name="download" />
+            <Text style={dashboardStyles.exportText}>Exportar</Text>
           </Pressable>
           <Pressable
             style={dashboardStyles.newButton}
             onPress={() => openForm()}
           >
-            <Text style={dashboardStyles.newButtonText}>＋ Nuevo pago</Text>
+            <AdminGlyph name="add" />
+            <Text style={dashboardStyles.newButtonText}>Nuevo pago</Text>
           </Pressable>
         </View>
       </View>
+
+      {message ? (
+        <Text
+          style={[
+            dashboardStyles.emptyText,
+            { color: message.includes("✅") ? "#16a34a" : "#ef4444" },
+          ]}
+        >
+          {message}
+        </Text>
+      ) : null}
+      {loading ? <ActivityIndicator color="#0071e3" size="large" /> : null}
 
       <View style={dashboardStyles.paymentStats}>
         <PaymentMetric
@@ -246,7 +356,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
           value={formatCurrency(
             pending.reduce((sum, payment) => sum + payment.amount, 0),
           )}
-          note="Datos de demostración"
+          note="Según pagos registrados"
           icon="wallet"
         />
         <PaymentMetric
@@ -264,14 +374,18 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
           value={String(
             payments.filter((payment) => payment.status === "Pagado").length,
           )}
-          note="Datos de demostración"
+          note="Guardados en Supabase"
           icon="check"
         />
         <PaymentMetric
           compact={compact}
-          label="Precio de ejemplo / kg"
-          value="$18 MXN"
-          note="Referencia de demostración"
+          label="Total pagado"
+          value={formatCurrency(
+            payments
+              .filter((payment) => payment.status === "Pagado")
+              .reduce((sum, payment) => sum + payment.amount, 0),
+          )}
+          note="Importe liquidado"
           icon="orchards"
         />
       </View>
@@ -288,7 +402,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
             compact && dashboardStyles.producerSearchCompact,
           ]}
         >
-          <Text style={dashboardStyles.searchGlyph}>⌕</Text>
+          <AdminGlyph name="search" color="#86868b" />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -360,22 +474,14 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => removePayment(payment)}
+                  onPress={() => setDeleteTarget(payment)}
                 >
                   <ActionGlyph name="delete" />
                 </Pressable>
                 {payment.status === "Pendiente" && (
                   <Pressable
                     style={dashboardStyles.registerPaymentButton}
-                    onPress={() =>
-                      setPayments((items) =>
-                        items.map((item) =>
-                          item.folio === payment.folio
-                            ? { ...item, status: "Pagado" }
-                            : item,
-                        ),
-                      )
-                    }
+                    onPress={() => void markAsPaid(payment)}
                   >
                     <Text style={dashboardStyles.registerPaymentText}>
                       Registrar pago
@@ -530,15 +636,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
                   {payment.status === "Pendiente" && (
                     <Pressable
                       style={dashboardStyles.registerPaymentButton}
-                      onPress={() =>
-                        setPayments((items) =>
-                          items.map((item) =>
-                            item.folio === payment.folio
-                              ? { ...item, status: "Pagado" }
-                              : item,
-                          ),
-                        )
-                      }
+                      onPress={() => void markAsPaid(payment)}
                     >
                       <Text style={dashboardStyles.registerPaymentText}>
                         Registrar pago
@@ -553,7 +651,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
                   </Pressable>
                   <Pressable
                     accessibilityLabel={`Eliminar pago ${payment.folio}`}
-                    onPress={() => removePayment(payment)}
+                    onPress={() => setDeleteTarget(payment)}
                   >
                     <ActionGlyph name="delete" />
                   </Pressable>
@@ -602,7 +700,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
               </Text>
               <Text style={dashboardStyles.fieldLabel}>Productor</Text>
               <View style={dashboardStyles.paymentProducerOptions}>
-                {initialProducers.map((producer) => (
+                {activeProducers.map((producer) => (
                   <Pressable
                     key={producer.folio}
                     onPress={() => setProducerFolio(producer.folio)}
@@ -682,14 +780,77 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
                 <Pressable onPress={() => setEditing(null)}>
                   <Text style={dashboardStyles.cancelText}>Cancelar</Text>
                 </Pressable>
-                <Pressable onPress={save} style={dashboardStyles.newButton}>
-                  <Text style={dashboardStyles.newButtonText}>
-                    Guardar pago
-                  </Text>
+                <Pressable
+                  onPress={() => void save()}
+                  disabled={saving}
+                  style={[
+                    dashboardStyles.newButton,
+                    saving && { opacity: 0.6 },
+                  ]}
+                >
+                  {saving ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={dashboardStyles.newButtonText}>
+                      Guardar pago
+                    </Text>
+                  )}
                 </Pressable>
               </View>
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={Boolean(deleteTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTarget(null)}
+      >
+        <View
+          style={[
+            dashboardStyles.modalBackdrop,
+            compact && dashboardStyles.modalBackdropCompact,
+          ]}
+        >
+          <View
+            style={[
+              dashboardStyles.formCard,
+              compact && dashboardStyles.formCardCompact,
+            ]}
+          >
+            <Text style={dashboardStyles.panelTitle}>Eliminar pago</Text>
+            <Text style={dashboardStyles.modalDescription}>
+              ¿Deseas eliminar el pago {deleteTarget?.folio}? Esta acción no se
+              puede deshacer.
+            </Text>
+            <View
+              style={[
+                dashboardStyles.formActions,
+                compact && dashboardStyles.formActionsCompact,
+              ]}
+            >
+              <Pressable onPress={() => setDeleteTarget(null)} disabled={saving}>
+                <Text style={dashboardStyles.cancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void removePayment()}
+                disabled={saving}
+                style={[
+                  dashboardStyles.newButton,
+                  { backgroundColor: "#dc2626" },
+                  saving && { opacity: 0.6 },
+                ]}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={dashboardStyles.newButtonText}>Eliminar</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
         </View>
       </Modal>
     </ScrollView>
@@ -721,7 +882,7 @@ function PaymentMetric({
         <Text style={dashboardStyles.statLabel}>{label}</Text>
         <View style={dashboardStyles.statIcon}>
           {icon === "check" ? (
-            <Text style={dashboardStyles.statGlyph}>✓</Text>
+            <AdminGlyph name="check" color="#16a34a" size={20} />
           ) : (
             <StatGlyph name={icon} />
           )}

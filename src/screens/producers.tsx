@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { ActionGlyph } from "@/components/dashboard-glyphs";
+import { ActionGlyph, AdminGlyph } from "@/components/dashboard-glyphs";
 import { dashboardStyles } from "@/styles/dashboard";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -212,7 +212,8 @@ export default function ProducersScreen({
             style={dashboardStyles.newButton}
             onPress={openCreateModal}
           >
-            <Text style={dashboardStyles.newButtonText}>+ Nuevo productor</Text>
+            <AdminGlyph name="add" />
+            <Text style={dashboardStyles.newButtonText}>Nuevo productor</Text>
           </Pressable>
         </View>
       </View>
@@ -229,7 +230,7 @@ export default function ProducersScreen({
             compact && dashboardStyles.producerSearchCompact,
           ]}
         >
-          <Text style={dashboardStyles.searchGlyph}>🔍</Text>
+          <AdminGlyph name="search" color="#86868b" />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}

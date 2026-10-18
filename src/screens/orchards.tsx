@@ -1,5 +1,7 @@
-import { useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Modal,
   Pressable,
@@ -8,14 +10,17 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { NavGlyph, StatGlyph } from "@/components/dashboard-glyphs";
+import { ActionGlyph, AdminGlyph, NavGlyph, StatGlyph } from "@/components/dashboard-glyphs";
 import { dashboardStyles } from "@/styles/dashboard";
 import OrchardMap from "@/components/orchard-map";
 import type { Orchard } from "@/types/orchard";
-import { initialProducers, producerFullName } from "@/screens/producers";
+import { producerFullName } from "@/screens/producers";
+import { supabase } from "@/lib/supabase";
 
 export const demoOrchards: Orchard[] = [
   {
+    id: "demo-orchard-1",
+    producer_id: null,
     name: "La Esperanza",
     folio: "HRT-001",
     producer: "José Martínez López",
@@ -26,6 +31,8 @@ export const demoOrchards: Orchard[] = [
     active: true,
   },
   {
+    id: "demo-orchard-2",
+    producer_id: null,
     name: "El Guayabal",
     folio: "HRT-002",
     producer: "María Elena González",
@@ -36,6 +43,8 @@ export const demoOrchards: Orchard[] = [
     active: true,
   },
   {
+    id: "demo-orchard-3",
+    producer_id: null,
     name: "Los Laureles",
     folio: "HRT-003",
     producer: "Roberto Díaz Ramírez",
@@ -46,6 +55,8 @@ export const demoOrchards: Orchard[] = [
     active: true,
   },
   {
+    id: "demo-orchard-4",
+    producer_id: null,
     name: "La Palma",
     folio: "HRT-004",
     producer: "Miguel Ángel Torres",
@@ -57,23 +68,87 @@ export const demoOrchards: Orchard[] = [
   },
 ];
 
+type ProducerOption = {
+  id: string;
+  folio: string;
+  nombres: string | null;
+  apellidos: string | null;
+  active: boolean | null;
+  status: string | null;
+};
+
+const normalizeOrchard = (row: any): Orchard => ({
+  id: String(row.id),
+  producer_id: row.producer_id ? String(row.producer_id) : null,
+  name: row.name || "Huerta sin nombre",
+  folio: row.folio || "",
+  producer: row.producer || "Productor no asignado",
+  hectares: Number(row.hectares) || 0,
+  tenure: row.tenure === "Rentada" ? "Rentada" : "Propia",
+  latitude: Number(row.latitude) || 0,
+  longitude: Number(row.longitude) || 0,
+  active: row.active !== false,
+});
+
 export default function OrchardScreen({ compact }: { compact: boolean }) {
-  const [orchards, setOrchards] = useState(demoOrchards);
+  const [orchards, setOrchards] = useState<Orchard[]>([]);
+  const [producers, setProducers] = useState<ProducerOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"Todos" | "Activas" | "Inactivas">(
     "Todos",
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Orchard | null>(null);
-  const [selectedFolio, setSelectedFolio] = useState(demoOrchards[0].folio);
+  const [deleteTarget, setDeleteTarget] = useState<Orchard | null>(null);
+  const [selectedFolio, setSelectedFolio] = useState("");
   const [name, setName] = useState("");
-  const [producer, setProducer] = useState(
-    producerFullName(initialProducers[0]),
-  );
+  const [producerId, setProducerId] = useState("");
   const [hectares, setHectares] = useState("");
   const [tenure, setTenure] = useState<"Propia" | "Rentada">("Propia");
   const [latitude, setLatitude] = useState("19.4200");
   const [longitude, setLongitude] = useState("-102.0600");
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [orchardsResult, producersResult] = await Promise.all([
+        supabase.from("orchards").select("*").order("created_at", {
+          ascending: false,
+        }),
+        supabase
+          .from("producers")
+          .select("id,folio,nombres,apellidos,active,status")
+          .order("nombres"),
+      ]);
+      if (orchardsResult.error) throw orchardsResult.error;
+      if (producersResult.error) throw producersResult.error;
+      const loadedOrchards = (orchardsResult.data || []).map(normalizeOrchard);
+      setOrchards(loadedOrchards);
+      setProducers((producersResult.data || []) as ProducerOption[]);
+      setSelectedFolio((current) =>
+        loadedOrchards.some((item) => item.folio === current)
+          ? current
+          : loadedOrchards[0]?.folio || "",
+      );
+      setMessage("");
+    } catch (error: any) {
+      setMessage(error.message || "No fue posible cargar las huertas.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const activeProducers = producers.filter(
+    (item) => item.active !== false && item.status !== "Inactivo",
+  );
+
   const visible = orchards.filter(
     (orchard) =>
       `${orchard.name} ${orchard.folio} ${orchard.producer}`
@@ -84,25 +159,22 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
   const openForm = (orchard?: Orchard) => {
     setEditing(orchard ?? null);
     setName(orchard?.name ?? "");
-    setProducer(
-      orchard?.producer ??
-        producerFullName(
-          initialProducers.find((item) => item.active) ?? initialProducers[0],
-        ),
-    );
+    setProducerId(orchard?.producer_id ?? activeProducers[0]?.id ?? "");
     setHectares(orchard ? String(orchard.hectares) : "");
     setTenure(orchard?.tenure ?? "Propia");
     setLatitude(orchard ? String(orchard.latitude) : "19.4200");
     setLongitude(orchard ? String(orchard.longitude) : "-102.0600");
+    setMessage("");
     setModalOpen(true);
   };
-  const saveOrchard = () => {
+  const saveOrchard = async () => {
     const parsedHectares = Number(hectares);
     const parsedLatitude = Number(latitude);
     const parsedLongitude = Number(longitude);
+    const selectedProducer = producers.find((item) => item.id === producerId);
     if (
       !name.trim() ||
-      !producer ||
+      !selectedProducer ||
       !parsedHectares ||
       parsedHectares < 0 ||
       !Number.isFinite(parsedLatitude) ||
@@ -118,24 +190,81 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
       );
       return;
     }
-    const saved: Orchard = {
+    const payload = {
       name: name.trim(),
-      producer,
+      producer_id: selectedProducer.id,
+      producer: producerFullName(selectedProducer),
       hectares: parsedHectares,
       tenure,
       latitude: parsedLatitude,
       longitude: parsedLongitude,
       folio:
-        editing?.folio ?? `HRT-${String(orchards.length + 1).padStart(3, "0")}`,
+        editing?.folio ?? `HRT-${Date.now().toString().slice(-7)}`,
       active: editing?.active ?? true,
     };
-    setOrchards((items) =>
-      editing
-        ? items.map((item) => (item.folio === editing.folio ? saved : item))
-        : [...items, saved],
-    );
-    setSelectedFolio(saved.folio);
-    setModalOpen(false);
+    setSaving(true);
+    try {
+      const { data, error } = editing
+        ? await supabase
+            .from("orchards")
+            .update(payload)
+            .eq("id", editing.id)
+            .select("id")
+            .maybeSingle()
+        : await supabase
+            .from("orchards")
+            .insert([payload])
+            .select("id")
+            .single();
+      if (error) throw error;
+      if (!data) throw new Error("Supabase no permitió modificar la huerta.");
+      setSelectedFolio(payload.folio);
+      setModalOpen(false);
+      await fetchData();
+      setMessage(
+        editing
+          ? "✅ Huerta actualizada correctamente."
+          : "✅ Huerta registrada correctamente.",
+      );
+    } catch (error: any) {
+      setMessage(error.message || "No fue posible guardar la huerta.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteOrchard = (orchard: Orchard) => {
+    setDeleteTarget(orchard);
+  };
+
+  const confirmDeleteOrchard = async () => {
+    if (!deleteTarget) return;
+    const orchard = deleteTarget;
+    setSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("orchards")
+        .delete()
+        .eq("id", orchard.id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Supabase no permitió eliminar la huerta.");
+      setOrchards((items) =>
+        items.filter((item) => item.id !== orchard.id),
+      );
+      if (selectedFolio === orchard.folio) setSelectedFolio("");
+      setDeleteTarget(null);
+      setMessage("✅ Huerta eliminada correctamente.");
+    } catch (error: any) {
+      setDeleteTarget(null);
+      setMessage(
+        error.message ||
+          "No fue posible eliminar la huerta. Verifica que no tenga recepciones asociadas.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -181,16 +310,31 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
               )
             }
           >
-            <Text style={dashboardStyles.exportText}>⇩ Exportar</Text>
+            <AdminGlyph name="download" />
+            <Text style={dashboardStyles.exportText}>Exportar</Text>
           </Pressable>
           <Pressable
             style={dashboardStyles.newButton}
             onPress={() => openForm()}
           >
-            <Text style={dashboardStyles.newButtonText}>＋ Nueva huerta</Text>
+            <AdminGlyph name="add" />
+            <Text style={dashboardStyles.newButtonText}>Nueva huerta</Text>
           </Pressable>
         </View>
       </View>
+
+      {message ? (
+        <Text
+          style={[
+            dashboardStyles.emptyText,
+            { color: message.includes("✅") ? "#16a34a" : "#ef4444" },
+          ]}
+        >
+          {message}
+        </Text>
+      ) : null}
+
+      {loading ? <ActivityIndicator color="#0071e3" size="large" /> : null}
 
       <View style={dashboardStyles.producerStats}>
         <View
@@ -249,7 +393,7 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
             compact && dashboardStyles.producerSearchCompact,
           ]}
         >
-          <Text style={dashboardStyles.searchGlyph}>⌕</Text>
+          <AdminGlyph name="search" color="#86868b" />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -312,9 +456,14 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
                 <Text style={dashboardStyles.producerMeta}>
                   {orchard.latitude.toFixed(4)}, {orchard.longitude.toFixed(4)}
                 </Text>
-                <Pressable onPress={() => openForm(orchard)}>
-                  <Text style={dashboardStyles.rowAction}>Editar</Text>
-                </Pressable>
+                <View style={{ flexDirection: "row", gap: 18 }}>
+                  <Pressable onPress={() => openForm(orchard)}>
+                    <Text style={dashboardStyles.rowAction}>Editar</Text>
+                  </Pressable>
+                  <Pressable onPress={() => deleteOrchard(orchard)}>
+                    <Text style={dashboardStyles.rowDelete}>Eliminar</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
           ))}
@@ -477,18 +626,13 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
                     accessibilityLabel={`Editar ${orchard.name}`}
                     onPress={() => openForm(orchard)}
                   >
-                    <Text style={dashboardStyles.rowAction}>✎</Text>
+                    <ActionGlyph name="edit" />
                   </Pressable>
                   <Pressable
                     accessibilityLabel={`Eliminar ${orchard.name}`}
-                    onPress={() => {
-                      setOrchards((items) =>
-                        items.filter((item) => item.folio !== orchard.folio),
-                      );
-                      if (selectedFolio === orchard.folio) setSelectedFolio("");
-                    }}
+                    onPress={() => deleteOrchard(orchard)}
                   >
-                    <Text style={dashboardStyles.rowDelete}>×</Text>
+                    <ActionGlyph name="delete" />
                   </Pressable>
                 </View>
               </Pressable>
@@ -530,7 +674,7 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
         {orchards.find((item) => item.folio === selectedFolio) && (
           <View style={dashboardStyles.selectedOrchard}>
             <View style={dashboardStyles.mapPinMini}>
-              <Text style={dashboardStyles.mapPinMiniText}>⌖</Text>
+              <AdminGlyph name="location" />
             </View>
             <View style={dashboardStyles.selectedOrchardCopy}>
               <Text style={dashboardStyles.producerName}>
@@ -598,24 +742,22 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
                 Productor registrado
               </Text>
               <View style={dashboardStyles.producerPicker}>
-                {initialProducers
-                  .filter((item) => item.active)
-                  .map((item) => {
+                {activeProducers.map((item) => {
                     const fullName = producerFullName(item);
                     return (
                       <Pressable
                         key={item.folio}
-                        onPress={() => setProducer(fullName)}
+                        onPress={() => setProducerId(item.id)}
                         style={[
                           dashboardStyles.producerChoice,
-                          producer === fullName &&
+                          producerId === item.id &&
                             dashboardStyles.producerChoiceSelected,
                         ]}
                       >
                         <Text
                           style={[
                             dashboardStyles.producerChoiceText,
-                            producer === fullName &&
+                            producerId === item.id &&
                               dashboardStyles.producerChoiceTextSelected,
                           ]}
                         >
@@ -705,15 +847,78 @@ export default function OrchardScreen({ compact }: { compact: boolean }) {
                 </Pressable>
                 <Pressable
                   onPress={saveOrchard}
-                  style={dashboardStyles.newButton}
+                  disabled={saving}
+                  style={[
+                    dashboardStyles.newButton,
+                    saving && { opacity: 0.6 },
+                  ]}
                 >
-                  <Text style={dashboardStyles.newButtonText}>
-                    Guardar huerta
-                  </Text>
+                  {saving ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={dashboardStyles.newButtonText}>
+                      Guardar huerta
+                    </Text>
+                  )}
                 </Pressable>
               </View>
             </View>
           </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={Boolean(deleteTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTarget(null)}
+      >
+        <View
+          style={[
+            dashboardStyles.modalBackdrop,
+            compact && dashboardStyles.modalBackdropCompact,
+          ]}
+        >
+          <View
+            style={[
+              dashboardStyles.formCard,
+              compact && dashboardStyles.formCardCompact,
+            ]}
+          >
+            <Text style={dashboardStyles.panelTitle}>Eliminar huerta</Text>
+            <Text style={dashboardStyles.modalDescription}>
+              ¿Deseas eliminar {deleteTarget?.name}? Esta acción no se puede
+              deshacer.
+            </Text>
+            <View
+              style={[
+                dashboardStyles.formActions,
+                compact && dashboardStyles.formActionsCompact,
+              ]}
+            >
+              <Pressable
+                onPress={() => setDeleteTarget(null)}
+                disabled={saving}
+              >
+                <Text style={dashboardStyles.cancelText}>Cancelar</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void confirmDeleteOrchard()}
+                disabled={saving}
+                style={[
+                  dashboardStyles.newButton,
+                  { backgroundColor: "#dc2626" },
+                  saving && { opacity: 0.6 },
+                ]}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={dashboardStyles.newButtonText}>Eliminar</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
         </View>
       </Modal>
     </ScrollView>

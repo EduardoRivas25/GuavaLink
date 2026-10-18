@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -40,6 +41,10 @@ export default function ProducerHome({
   const [deliveries, setDeliveries] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [orchards, setOrchards] = useState<any[]>([]);
+  const [editingOrchard, setEditingOrchard] = useState<any | null>(null);
+  const [deleteOrchardTarget, setDeleteOrchardTarget] = useState<any | null>(
+    null,
+  );
   const [registrations, setRegistrations] = useState<any[]>([]);
   const [orchardName, setOrchardName] = useState("");
   const [latitude, setLatitude] = useState("");
@@ -157,31 +162,98 @@ export default function ProducerHome({
       setMessage("Completa nombre, superficie y coordenadas válidas.");
       return;
     }
+    const payload = {
+      folio:
+        editingOrchard?.folio ?? `HRT-${Date.now().toString().slice(-7)}`,
+      name: orchardName.trim(),
+      producer_id: producerRecord.id,
+      producer: producerName(producerRecord),
+      hectares: parsedHectares,
+      latitude: parsedLatitude,
+      longitude: parsedLongitude,
+      tenure: editingOrchard?.tenure ?? "Propia",
+      active: editingOrchard?.active ?? true,
+    };
     setSaving(true);
-    const { error } = await supabase.from("orchards").insert([
-      {
-        folio: `HRT-${Date.now().toString().slice(-7)}`,
-        name: orchardName.trim(),
-        producer_id: producerRecord.id,
-        producer: producerName(producerRecord),
-        hectares: parsedHectares,
-        latitude: parsedLatitude,
-        longitude: parsedLongitude,
-        tenure: "Propia",
-        active: true,
-      },
-    ]);
-    setSaving(false);
-    if (error) {
-      setMessage(error.message);
-      return;
+    try {
+      const { data, error } = editingOrchard
+        ? await supabase
+            .from("orchards")
+            .update(payload)
+            .eq("id", editingOrchard.id)
+            .eq("producer_id", producerRecord.id)
+            .select("id")
+            .maybeSingle()
+        : await supabase
+            .from("orchards")
+            .insert([payload])
+            .select("id")
+            .single();
+      if (error) throw error;
+      if (!data) throw new Error("Supabase no permitió modificar la huerta.");
+      setOrchardName("");
+      setLatitude("");
+      setLongitude("");
+      setHectares("");
+      setEditingOrchard(null);
+      await loadProducerData();
+      setMessage(
+        editingOrchard
+          ? "✅ Huerta actualizada correctamente."
+          : "✅ Huerta registrada correctamente.",
+      );
+    } catch (error: any) {
+      setMessage(error.message || "No fue posible guardar la huerta.");
+    } finally {
+      setSaving(false);
     }
+  };
+
+  const startEditingOrchard = (orchard: any) => {
+    setEditingOrchard(orchard);
+    setOrchardName(orchard.name || "");
+    setHectares(String(orchard.hectares ?? ""));
+    setLatitude(String(orchard.latitude ?? ""));
+    setLongitude(String(orchard.longitude ?? ""));
+    setMessage("");
+  };
+
+  const cancelEditingOrchard = () => {
+    setEditingOrchard(null);
     setOrchardName("");
+    setHectares("");
     setLatitude("");
     setLongitude("");
-    setHectares("");
-    await loadProducerData();
-    setMessage("✅ Huerta registrada correctamente.");
+  };
+
+  const confirmDeleteOrchard = async () => {
+    if (!deleteOrchardTarget || !producerRecord) return;
+    setSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("orchards")
+        .delete()
+        .eq("id", deleteOrchardTarget.id)
+        .eq("producer_id", producerRecord.id)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Supabase no permitió eliminar la huerta.");
+      setDeleteOrchardTarget(null);
+      if (editingOrchard?.id === deleteOrchardTarget.id) {
+        cancelEditingOrchard();
+      }
+      await loadProducerData();
+      setMessage("✅ Huerta eliminada correctamente.");
+    } catch (error: any) {
+      setDeleteOrchardTarget(null);
+      setMessage(
+        error.message ||
+          "No fue posible eliminar la huerta. Verifica que no tenga recepciones asociadas.",
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const saveRegistration = async () => {
@@ -382,7 +454,7 @@ export default function ProducerHome({
                 ]}
               >
                 <Text style={[styles.panelTitle, { color: t.text }]}>
-                  Registrar huerta
+                  {editingOrchard ? "Editar huerta" : "Registrar huerta"}
                 </Text>
                 <Text style={[styles.label, { color: t.text }]}>Nombre</Text>
                 <TextInput
@@ -441,8 +513,28 @@ export default function ProducerHome({
                   onPress={saveOrchard}
                   disabled={saving}
                 >
-                  <Text style={styles.primaryButtonText}>Guardar huerta</Text>
+                  {saving ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>
+                      {editingOrchard ? "Actualizar huerta" : "Guardar huerta"}
+                    </Text>
+                  )}
                 </Pressable>
+                {editingOrchard ? (
+                  <Pressable onPress={cancelEditingOrchard} disabled={saving}>
+                    <Text
+                      style={{
+                        color: t.sub,
+                        textAlign: "center",
+                        marginTop: 12,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Cancelar edición
+                    </Text>
+                  </Pressable>
+                ) : null}
                 {!schemaReady && (
                   <Text style={{ color: "#ef4444", fontSize: 12 }}>
                     Falta aplicar la migración de trazabilidad en Supabase.
@@ -461,9 +553,23 @@ export default function ProducerHome({
                         {item.latitude}, {item.longitude}
                       </Text>
                     </View>
-                    <Text style={{ color: "#16a34a", fontWeight: "700" }}>
-                      {item.hectares} ha
-                    </Text>
+                    <View style={{ alignItems: "flex-end", gap: 8 }}>
+                      <Text style={{ color: "#16a34a", fontWeight: "700" }}>
+                        {item.hectares} ha
+                      </Text>
+                      <View style={{ flexDirection: "row", gap: 14 }}>
+                        <Pressable onPress={() => startEditingOrchard(item)}>
+                          <Text style={{ color: "#0071e3", fontWeight: "700" }}>
+                            Editar
+                          </Text>
+                        </Pressable>
+                        <Pressable onPress={() => setDeleteOrchardTarget(item)}>
+                          <Text style={{ color: "#dc2626", fontWeight: "700" }}>
+                            Eliminar
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </View>
                   </View>
                 ))}
               </View>
@@ -636,6 +742,79 @@ export default function ProducerHome({
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={Boolean(deleteOrchardTarget)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteOrchardTarget(null)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.72)",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <View
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              padding: 24,
+              borderRadius: 22,
+              borderWidth: 1,
+              backgroundColor: t.card,
+              borderColor: t.border,
+            }}
+          >
+            <Text style={[styles.panelTitle, { color: t.text }]}>
+              Eliminar huerta
+            </Text>
+            <Text style={{ color: t.sub, lineHeight: 21, marginTop: 10 }}>
+              ¿Deseas eliminar {deleteOrchardTarget?.name}? Esta acción no se
+              puede deshacer.
+            </Text>
+            <View
+              style={{
+                flexDirection: compact ? "column" : "row",
+                justifyContent: "flex-end",
+                gap: 12,
+                marginTop: 24,
+              }}
+            >
+              <Pressable
+                onPress={() => setDeleteOrchardTarget(null)}
+                disabled={saving}
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: t.border, marginTop: 0 },
+                ]}
+              >
+                <Text style={[styles.primaryButtonText, { color: t.text }]}>
+                  Cancelar
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void confirmDeleteOrchard()}
+                disabled={saving}
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: "#dc2626", marginTop: 0 },
+                  saving && { opacity: 0.6 },
+                ]}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Eliminar</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

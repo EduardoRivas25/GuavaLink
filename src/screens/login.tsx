@@ -82,6 +82,18 @@ export default function LoginScreen() {
         .ilike('email', cleanEmail)
         .maybeSingle();
 
+      if (roleRow?.status === 'Inactivo') {
+        setMessage('Esta cuenta está inactiva. Solicita al administrador que la reactive.');
+        setLoading(false);
+        return;
+      }
+
+      if (roleRow?.password && roleRow.password !== cleanPassword) {
+        setMessage('Contraseña incorrecta.');
+        setLoading(false);
+        return;
+      }
+
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: cleanPassword,
@@ -98,11 +110,6 @@ export default function LoginScreen() {
       }
 
       if (roleRow) {
-        if (roleRow.password && roleRow.password !== cleanPassword && cleanPassword.length < 3) {
-          setMessage('Contraseña incorrecta.');
-          setLoading(false);
-          return;
-        }
         setActiveAccount({
           email: roleRow.email,
           name: roleRow.name,

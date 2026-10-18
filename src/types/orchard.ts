@@ -1,4 +1,6 @@
 export type Orchard = {
+  id: string;
+  producer_id: string | null;
   name: string;
   folio: string;
   producer: string;

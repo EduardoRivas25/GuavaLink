@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import {
   ActionGlyph,
+  AdminGlyph,
   NavGlyph,
   StatGlyph,
 } from "@/components/dashboard-glyphs";
@@ -229,7 +230,8 @@ export default function ShipmentScreen({
             style={dashboardStyles.newButton}
             onPress={() => openForm()}
           >
-            <Text style={dashboardStyles.newButtonText}>＋ Nuevo embarque</Text>
+            <AdminGlyph name="add" />
+            <Text style={dashboardStyles.newButtonText}>Nuevo embarque</Text>
           </Pressable>
         </View>
       </View>
@@ -287,7 +289,7 @@ export default function ShipmentScreen({
             compact && dashboardStyles.producerSearchCompact,
           ]}
         >
-          <Text style={dashboardStyles.searchGlyph}>⌕</Text>
+          <AdminGlyph name="search" color="#86868b" />
           <TextInput
             value={query}
             onChangeText={setQuery}

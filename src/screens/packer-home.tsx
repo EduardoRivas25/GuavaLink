@@ -191,14 +191,22 @@ export default function PackerHome({
     try {
       const folio = `REC-${Math.floor(1000 + Math.random() * 9000)}`;
       const producerQr = producerQrValue(selectedProducer);
+      const receptionDate = new Date();
+      const fecha = [
+        receptionDate.getFullYear(),
+        String(receptionDate.getMonth() + 1).padStart(2, "0"),
+        String(receptionDate.getDate()).padStart(2, "0"),
+      ].join("-");
       const { error } = await supabase.from("receptions").insert([
         {
           folio,
+          fecha,
           producer_id: selectedProducer.id,
-          producer_folio_: selectedProducer.folio,
+          producer_folio: selectedProducer.folio,
           producer_name: selectedProducerName,
           producer_qr: producerQr,
           qr_code: producerQr,
+          concepto: `Recepción de guayaba · ${selectedShipment.folio}`,
           orchard_id: selectedOrchard.id,
           orchard_name: selectedOrchard.name,
           export_registration_id: selectedRegistration.id,

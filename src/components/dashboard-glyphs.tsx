@@ -26,6 +26,45 @@ export function ActionGlyph({ name, isDark = true }: { name: 'edit' | 'delete' |
   );
 }
 
+export function AdminGlyph({
+  name,
+  color = "#ffffff",
+  size = 17,
+}: {
+  name: "add" | "download" | "search" | "check" | "location";
+  color?: string;
+  size?: number;
+}) {
+  const common = {
+    stroke: color,
+    strokeWidth: 1.9,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    fill: "none" as const,
+  };
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      {name === "add" && <Path {...common} d="M12 5v14M5 12h14" />}
+      {name === "download" && (
+        <Path {...common} d="M12 3v12m0 0 5-5m-5 5-5-5M4 20h16" />
+      )}
+      {name === "search" && (
+        <>
+          <Circle {...common} cx="10.5" cy="10.5" r="6.5" />
+          <Path {...common} d="m15.5 15.5 4.5 4.5" />
+        </>
+      )}
+      {name === "check" && <Path {...common} d="m5 12 4 4L19 6" />}
+      {name === "location" && (
+        <>
+          <Path {...common} d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
+          <Circle {...common} cx="12" cy="10" r="2.5" />
+        </>
+      )}
+    </Svg>
+  );
+}
+
 export function NavGlyph({ name, active = false, isDark = true }: { name: string; active?: boolean; isDark?: boolean }) {
   const color = active ? (isDark ? '#ffffff' : '#0071e3') : (isDark ? '#86868b' : '#64748b');
   const common = { stroke: color, strokeWidth: 1.7, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, fill: 'none' };

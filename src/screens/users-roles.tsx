@@ -1,5 +1,7 @@
-import { useState } from "react";
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -7,11 +9,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { NavGlyph } from "@/components/dashboard-glyphs";
+import { AdminGlyph, NavGlyph } from "@/components/dashboard-glyphs";
 import { dashboardStyles } from "@/styles/dashboard";
-import { initialProducers, producerFullName } from "@/screens/producers";
+import { producerFullName } from "@/screens/producers";
+import { supabase } from "@/lib/supabase";
 
-type AccountRole = "Productor" | "Empacador";
+type AccountRole = "Administrador" | "Productor" | "Empacador";
+type CreatableRole = "Productor" | "Empacador";
 type UserAccount = {
   id: string;
   name: string;
@@ -19,47 +23,37 @@ type UserAccount = {
   role: AccountRole;
   producerFolio?: string;
   active: boolean;
-  password: string;
 };
-const initialUserAccounts: UserAccount[] = [
-  ...initialProducers
-    .filter((producer) => producer.active)
-    .map((producer, index): UserAccount => ({
-      id: `USR-${producer.folio}`,
-      name: producerFullName(producer),
-      email: `${producer.nombres.toLowerCase().replaceAll(" ", ".")}@guavalink.mx`,
-      role: "Productor",
-      producerFolio: producer.folio,
-      active: true,
-      password: `Demo-${index + 1}-Guava`,
-    })),
-  {
-    id: "USR-EMP-001",
-    name: "Alejandro Cruz",
-    email: "alejandro.cruz@guavalink.mx",
-    role: "Empacador",
-    active: true,
-    password: "Demo-Empacador-1",
-  },
-  {
-    id: "USR-EMP-002",
-    name: "Equipo de recepción",
-    email: "recepcion@guavalink.mx",
-    role: "Empacador",
-    active: true,
-    password: "Demo-Empacador-2",
-  },
-];
+
+type ProducerRecord = {
+  id: string;
+  folio: string;
+  nombres: string | null;
+  apellidos: string | null;
+  email: string | null;
+  active: boolean | null;
+  status: string | null;
+};
+
+const accountRole = (value: string): AccountRole => {
+  const role = value.toLowerCase();
+  if (role === "admin" || role === "administrador") return "Administrador";
+  if (role === "packer" || role === "empacador") return "Empacador";
+  return "Productor";
+};
 
 export default function UsersRolesScreen({ compact }: { compact: boolean }) {
-  const [accounts, setAccounts] = useState(initialUserAccounts);
+  const [accounts, setAccounts] = useState<UserAccount[]>([]);
+  const [producers, setProducers] = useState<ProducerRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"Todos" | "Activas" | "Inactivas">(
     "Todos",
   );
   const [roleFilter, setRoleFilter] = useState<"Todos" | AccountRole>("Todos");
   const [mode, setMode] = useState<"new" | "password" | null>(null);
-  const [role, setRole] = useState<AccountRole>("Empacador");
+  const [role, setRole] = useState<CreatableRole>("Empacador");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [producerFolio, setProducerFolio] = useState("");
@@ -68,12 +62,56 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
   const [confirmation, setConfirmation] = useState("");
   const [notice, setNotice] = useState("");
 
+  const loadAccounts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [accountsResult, producersResult] = await Promise.all([
+        supabase
+          .from("users_roles")
+          .select("id,email,name,role,status,created_at")
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("producers")
+          .select("id,folio,nombres,apellidos,email,active,status")
+          .order("nombres"),
+      ]);
+      if (accountsResult.error) throw accountsResult.error;
+      if (producersResult.error) throw producersResult.error;
+      const loadedProducers = (producersResult.data || []) as ProducerRecord[];
+      setProducers(loadedProducers);
+      setAccounts(
+        (accountsResult.data || []).map((row: any) => ({
+          id: String(row.id),
+          name: row.name || row.email,
+          email: row.email || "",
+          role: accountRole(row.role || "productor"),
+          producerFolio: loadedProducers.find(
+            (producer) =>
+              producer.email?.toLowerCase() === String(row.email).toLowerCase(),
+          )?.folio,
+          active: row.status !== "Inactivo",
+        })),
+      );
+      setNotice("");
+    } catch (error: any) {
+      setNotice(error.message || "No fue posible cargar las cuentas.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadAccounts();
+  }, [loadAccounts]);
+
   const linkedProducerFolios = accounts
     .filter((account) => account.role === "Productor")
     .map((account) => account.producerFolio);
-  const availableProducers = initialProducers.filter(
+  const availableProducers = producers.filter(
     (producer) =>
-      producer.active && !linkedProducerFolios.includes(producer.folio),
+      producer.active !== false &&
+      producer.status !== "Inactivo" &&
+      !linkedProducerFolios.includes(producer.folio),
   );
   const visible = accounts.filter((account) => {
     const matchesText =
@@ -102,10 +140,13 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
     setNotice("");
     setMode("password");
   };
-  const saveNew = () => {
+  const saveNew = async () => {
     if (role === "Productor") {
-      const producer = initialProducers.find(
-        (item) => item.folio === producerFolio && item.active,
+      const producer = producers.find(
+        (item) =>
+          item.folio === producerFolio &&
+          item.active !== false &&
+          item.status !== "Inactivo",
       );
       if (!producer || linkedProducerFolios.includes(producerFolio)) {
         setNotice("Selecciona un productor activo que aún no tenga cuenta.");
@@ -115,17 +156,27 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
         setNotice("La contraseña debe tener al menos 8 caracteres.");
         return;
       }
-      const account: UserAccount = {
-        id: `USR-${producer.folio}`,
+      if (!email.trim() || !email.includes("@")) {
+        setNotice("Escribe un correo electrónico válido.");
+        return;
+      }
+      setSaving(true);
+      const { error } = await supabase.from("users_roles").insert([
+        {
         name: producerFullName(producer),
         email: email.trim().toLowerCase(),
-        role,
-        producerFolio: producer.folio,
-        active: true,
+          role: "productor",
         password,
-      };
-      setAccounts((current) => [...current, account]);
+          status: "Activo",
+        },
+      ]);
+      setSaving(false);
+      if (error) {
+        setNotice(error.message);
+        return;
+      }
       setMode(null);
+      await loadAccounts();
       return;
     }
     if (!name.trim() || !email.trim() || !email.includes("@")) {
@@ -144,20 +195,25 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
       setNotice("Ya existe una cuenta con ese correo.");
       return;
     }
-    setAccounts((current) => [
-      ...current,
+    setSaving(true);
+    const { error } = await supabase.from("users_roles").insert([
       {
-        id: `USR-EMP-${String(current.filter((account) => account.role === "Empacador").length + 1).padStart(3, "0")}-${Date.now()}`,
         name: name.trim(),
         email: email.trim().toLowerCase(),
-        role: "Empacador",
-        active: true,
+        role: "empacador",
         password,
+        status: "Activo",
       },
     ]);
+    setSaving(false);
+    if (error) {
+      setNotice(error.message);
+      return;
+    }
     setMode(null);
+    await loadAccounts();
   };
-  const savePassword = () => {
+  const savePassword = async () => {
     if (!target) return;
     if (password.trim().length < 8) {
       setNotice("La contraseña debe tener al menos 8 caracteres.");
@@ -167,19 +223,45 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
       setNotice("Las contraseñas no coinciden.");
       return;
     }
-    setAccounts((current) =>
-      current.map((account) =>
-        account.id === target.id ? { ...account, password } : account,
-      ),
-    );
+    setSaving(true);
+    const { data, error } = await supabase
+      .from("users_roles")
+      .update({ password })
+      .eq("id", target.id)
+      .select("id")
+      .maybeSingle();
+    setSaving(false);
+    if (error || !data) {
+      setNotice(error?.message || "No fue posible cambiar la contraseña.");
+      return;
+    }
     setMode(null);
   };
-  const toggleAccount = (account: UserAccount) => {
+  const toggleAccount = async (account: UserAccount) => {
+    if (
+      account.role === "Administrador" &&
+      account.active &&
+      accounts.filter((item) => item.role === "Administrador" && item.active)
+        .length <= 1
+    ) {
+      setNotice("No puedes dar de baja la única cuenta administradora activa.");
+      return;
+    }
+    const active = !account.active;
+    const { data, error } = await supabase
+      .from("users_roles")
+      .update({ status: active ? "Activo" : "Inactivo" })
+      .eq("id", account.id)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) {
+      setNotice(error?.message || "No fue posible cambiar el estado.");
+      return;
+    }
     setAccounts((current) =>
-      current.map((item) =>
-        item.id === account.id ? { ...item, active: !item.active } : item,
-      ),
+      current.map((item) => (item.id === account.id ? { ...item, active } : item)),
     );
+    setNotice(active ? "✅ Cuenta reactivada." : "✅ Cuenta dada de baja.");
   };
 
   return (
@@ -211,9 +293,21 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
           </Text>
         </View>
         <Pressable style={dashboardStyles.newButton} onPress={openNew}>
-          <Text style={dashboardStyles.newButtonText}>＋ Nueva cuenta</Text>
+          <AdminGlyph name="add" />
+          <Text style={dashboardStyles.newButtonText}>Nueva cuenta</Text>
         </Pressable>
       </View>
+      {notice && mode === null ? (
+        <Text
+          style={[
+            dashboardStyles.emptyText,
+            { color: notice.includes("✅") ? "#16a34a" : "#ef4444" },
+          ]}
+        >
+          {notice}
+        </Text>
+      ) : null}
+      {loading ? <ActivityIndicator color="#0071e3" size="large" /> : null}
       <View style={dashboardStyles.producerStats}>
         <View
           style={[
@@ -243,7 +337,7 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
           <View style={dashboardStyles.statTop}>
             <Text style={dashboardStyles.statLabel}>Cuentas activas</Text>
             <View style={dashboardStyles.statIcon}>
-              <Text style={dashboardStyles.statGlyph}>✓</Text>
+              <AdminGlyph name="check" color="#16a34a" size={20} />
             </View>
           </View>
           <Text style={dashboardStyles.statValue}>
@@ -268,7 +362,7 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
             compact && dashboardStyles.producerSearchCompact,
           ]}
         >
-          <Text style={dashboardStyles.searchGlyph}>⌕</Text>
+          <AdminGlyph name="search" color="#86868b" />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -336,7 +430,9 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
                       name={
                         account.role === "Productor"
                           ? "role-producer"
-                          : "role-packer"
+                          : account.role === "Empacador"
+                            ? "role-packer"
+                            : "users"
                       }
                     />
                     <Text style={dashboardStyles.userRoleLabel}>
@@ -484,7 +580,9 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
                       name={
                         account.role === "Productor"
                           ? "role-producer"
-                          : "role-packer"
+                          : account.role === "Empacador"
+                            ? "role-packer"
+                            : "users"
                       }
                     />
                     <Text style={dashboardStyles.userRoleLabel}>
@@ -492,7 +590,10 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
                     </Text>
                   </View>
                   <Text style={dashboardStyles.producerSubMeta}>
-                    {account.producerFolio ?? "Personal de recepción"}
+                    {account.producerFolio ??
+                      (account.role === "Administrador"
+                        ? "Administración"
+                        : "Personal de recepción")}
                   </Text>
                 </View>
                 <View
@@ -533,7 +634,7 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
                     accessibilityRole="button"
                     accessibilityLabel={`${account.active ? "Dar de baja" : "Reactivar"} cuenta de ${account.name}`}
                     style={dashboardStyles.userActionButton}
-                    onPress={() => toggleAccount(account)}
+                    onPress={() => void toggleAccount(account)}
                   >
                     <NavGlyph
                       name={account.active ? "disable" : "enable"}
@@ -555,8 +656,8 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
         </Text>
       )}
       <Text style={dashboardStyles.reportFootnote}>
-        Datos locales de demostración. La gestión real de accesos requiere
-        conectar un servicio de autenticación.
+        Cuentas cargadas desde Supabase. Dar de baja impide el acceso por la
+        tabla de roles de GuavaLink.
       </Text>
       <Modal
         visible={mode !== null}
@@ -593,7 +694,7 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
                 <>
                   <Text style={dashboardStyles.fieldLabel}>Tipo de cuenta</Text>
                   <View style={dashboardStyles.userRolePicker}>
-                    {(["Productor", "Empacador"] as AccountRole[]).map(
+                    {(["Productor", "Empacador"] as CreatableRole[]).map(
                       (value) => (
                         <Pressable
                           key={value}
@@ -633,7 +734,8 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
                               onPress={() => {
                                 setProducerFolio(producer.folio);
                                 setEmail(
-                                  `${producer.nombres.toLowerCase().replaceAll(" ", ".")}@guavalink.mx`,
+                                  producer.email ||
+                                    `${String(producer.nombres || "productor").toLowerCase().replaceAll(" ", ".")}@guavalink.mx`,
                                 );
                               }}
                               style={[
@@ -754,12 +856,22 @@ export default function UsersRolesScreen({ compact }: { compact: boolean }) {
                   <Text style={dashboardStyles.cancelText}>Cancelar</Text>
                 </Pressable>
                 <Pressable
-                  onPress={mode === "password" ? savePassword : saveNew}
-                  style={dashboardStyles.newButton}
+                  onPress={() =>
+                    void (mode === "password" ? savePassword() : saveNew())
+                  }
+                  disabled={saving}
+                  style={[
+                    dashboardStyles.newButton,
+                    saving && { opacity: 0.6 },
+                  ]}
                 >
-                  <Text style={dashboardStyles.newButtonText}>
-                    {mode === "password" ? "Actualizar" : "Crear cuenta"}
-                  </Text>
+                  {saving ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={dashboardStyles.newButtonText}>
+                      {mode === "password" ? "Actualizar" : "Crear cuenta"}
+                    </Text>
+                  )}
                 </Pressable>
               </View>
             </View>
