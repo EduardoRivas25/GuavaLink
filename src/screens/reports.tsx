@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { AdminGlyph, NavGlyph } from "@/components/dashboard-glyphs";
 import { supabase } from "@/lib/supabase";
-import { dashboardStyles } from "@/styles/dashboard";
+import { getThemedDashboardStyles } from "@/styles/dashboard";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -67,7 +67,8 @@ const reportLogoUri =
           ? reportLogoAsset.default.uri
           : "";
 
-export default function ReportsScreen({ compact }: { compact: boolean }) {
+export default function ReportsScreen({ compact, isDarkMode = true }: { compact: boolean; isDarkMode?: boolean }) {
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const today = localDate();
   const [from, setFrom] = useState(`01/${today.slice(5, 7)}/${today.slice(0, 4)}`);
   const [to, setTo] = useState(toDisplayDate(today));

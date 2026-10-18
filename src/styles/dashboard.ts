@@ -1226,3 +1226,41 @@ export const dashboardStyles = StyleSheet.create({
   progressFill: { height: "100%", backgroundColor: "#0071e3", borderRadius: 2 },
   progressText: { color: "#0071e3", fontSize: 11, fontWeight: "600" },
 });
+
+const lightColors: Record<string, string> = {
+  "#000000": "#f1f5f9",
+  "#080808": "#ffffff",
+  "#101010": "#ffffff",
+  "#101713": "#f8fafc",
+  "#111111": "#ffffff",
+  "#141414": "#f8fafc",
+  "#141416": "#f8fafc",
+  "#1d1d1f": "#ffffff",
+  "#292929": "#e2e8f0",
+  "#333336": "#e2e8f0",
+  "#424245": "#cbd5e1",
+  "#86868b": "#64748b",
+  "#cccccc": "#334155",
+  "#f5f5f7": "#0f172a",
+};
+
+const lightDashboardStyles = Object.fromEntries(
+  Object.entries(dashboardStyles).map(([name, style]) => [
+    name,
+    Object.fromEntries(
+      Object.entries(StyleSheet.flatten(style) || {}).map(([property, value]) => [
+        property,
+        typeof value === "string" &&
+        (property.toLowerCase().includes("color") || property === "color")
+          ? property === "color" && value === "#1d1d1f"
+            ? "#0f172a"
+            : lightColors[value.toLowerCase()] || value
+          : value,
+      ]),
+    ),
+  ]),
+) as typeof dashboardStyles;
+
+export function getThemedDashboardStyles(isDarkMode: boolean) {
+  return isDarkMode ? dashboardStyles : lightDashboardStyles;
+}

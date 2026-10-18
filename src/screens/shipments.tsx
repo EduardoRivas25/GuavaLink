@@ -6,7 +6,7 @@ import {
   StatGlyph,
 } from "@/components/dashboard-glyphs";
 import { supabase } from "@/lib/supabase";
-import { dashboardStyles } from "@/styles/dashboard";
+import { getThemedDashboardStyles } from "@/styles/dashboard";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -52,9 +52,12 @@ const withInitials = (row: any): Shipment => ({
 
 export default function ShipmentScreen({
   compact = false,
+  isDarkMode = true,
 }: {
   compact?: boolean;
+  isDarkMode?: boolean;
 }) {
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");

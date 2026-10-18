@@ -13,6 +13,7 @@ export const roleHomeStyles = StyleSheet.create({
   },
   headerCompact: { paddingHorizontal: 16 },
   logo: { width: 150, height: 40, flexShrink: 1 },
+  logoCompact: { width: 42, height: 42, flexShrink: 0 },
   signOutButton: {
     minHeight: 40,
     paddingHorizontal: 16,

@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { ActionGlyph, AdminGlyph, NavGlyph, StatGlyph } from "@/components/dashboard-glyphs";
-import { dashboardStyles } from "@/styles/dashboard";
+import { getThemedDashboardStyles } from "@/styles/dashboard";
 import OrchardMap from "@/components/orchard-map";
 import type { Orchard } from "@/types/orchard";
 import { producerFullName } from "@/screens/producers";
@@ -90,7 +90,8 @@ const normalizeOrchard = (row: any): Orchard => ({
   active: row.active !== false,
 });
 
-export default function OrchardScreen({ compact }: { compact: boolean }) {
+export default function OrchardScreen({ compact, isDarkMode = true }: { compact: boolean; isDarkMode?: boolean }) {
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const [orchards, setOrchards] = useState<Orchard[]>([]);
   const [producers, setProducers] = useState<ProducerOption[]>([]);
   const [loading, setLoading] = useState(true);

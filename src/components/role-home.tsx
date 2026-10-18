@@ -1,8 +1,9 @@
 // components/role-home.tsx
+import { AppBrand } from '@/components/app-brand';
+import { ThemeToggle } from '@/components/theme-toggle';
 import type { DemoAccount } from '@/data/demo-accounts';
 import { roleHomeStyles as styles } from '@/styles/role-home';
-import { useEffect, useRef } from 'react';
-import { Animated, Image, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 type DemoCard = { title: string; value: string; detail: string };
@@ -21,21 +22,6 @@ export default function RoleHome({ account, roleLabel, description, cards, onSig
   const { width } = useWindowDimensions();
   const compact = width < 700;
 
-  const spinAnim = useRef(new Animated.Value(isDarkMode ? 0 : 1)).current;
-
-  useEffect(() => {
-    Animated.timing(spinAnim, {
-      toValue: isDarkMode ? 0 : 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [isDarkMode]);
-
-  const spin = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg']
-  });
-
   const t = {
     bg: isDarkMode ? '#000000' : '#f3f4f6',
     card: isDarkMode ? '#1d1d1f' : '#ffffff',
@@ -47,19 +33,10 @@ export default function RoleHome({ account, roleLabel, description, cards, onSig
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: t.bg }]}>
       <View style={[styles.header, compact && styles.headerCompact, { borderBottomColor: t.border }]}>
-        <Image 
-          source={isDarkMode ? require('../../assets/images/guavalink-brand-horizontal-dark.png') : require('../../assets/images/logo-horizontal-dark.png')} 
-          style={[styles.logo, !isDarkMode && { tintColor: '#111827' }]} 
-          resizeMode="contain" 
-          accessibilityLabel="GuavaLink" 
-        />
+        <AppBrand isDarkMode={isDarkMode} compact={compact} style={compact ? styles.logoCompact : styles.logo} />
         
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-          <Pressable onPress={toggleTheme}>
-            <Animated.View style={{ transform: [{ rotate: spin }] }}>
-              <Text style={{ fontSize: 24 }}>{isDarkMode ? '☀️' : '🌙'}</Text>
-            </Animated.View>
-          </Pressable>
+          <ThemeToggle isDarkMode={isDarkMode} onPress={toggleTheme} />
 
           <Pressable accessibilityRole="button" accessibilityLabel="Cerrar sesión y volver al inicio" onPress={onSignOut} style={[styles.signOutButton, { borderColor: t.border }]}>
             <Text style={[styles.signOutText, { color: t.text }]}>Cerrar sesión</Text>

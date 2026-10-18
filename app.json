@@ -4,23 +4,21 @@
     "slug": "GuavaLink",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/guavalink-brand-mark.png",
     "scheme": "guavalink",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "ios": {
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/guavalink-brand-mark.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/guavalink-mark.png"
     },
     "plugins": [
       "expo-router",
@@ -28,7 +26,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#080a08",
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/guavalink-brand-mark.png",
           "imageWidth": 76
         }
       ]

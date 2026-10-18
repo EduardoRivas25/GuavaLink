@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { ActionGlyph, AdminGlyph, StatGlyph } from "@/components/dashboard-glyphs";
-import { dashboardStyles } from "@/styles/dashboard";
+import { getThemedDashboardStyles } from "@/styles/dashboard";
 import { producerFullName } from "@/screens/producers";
 import { supabase } from "@/lib/supabase";
 
@@ -59,7 +59,8 @@ const localIsoDate = () => {
 const formatCurrency = (amount: number) =>
   `$${amount.toLocaleString("es-MX")} MXN`;
 
-export default function PaymentScreen({ compact }: { compact: boolean }) {
+export default function PaymentScreen({ compact, isDarkMode = true }: { compact: boolean; isDarkMode?: boolean }) {
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [producers, setProducers] = useState<ProducerRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -352,6 +353,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
       <View style={dashboardStyles.paymentStats}>
         <PaymentMetric
           compact={compact}
+          isDarkMode={isDarkMode}
           label="Pendiente de pago"
           value={formatCurrency(
             pending.reduce((sum, payment) => sum + payment.amount, 0),
@@ -361,6 +363,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
         />
         <PaymentMetric
           compact={compact}
+          isDarkMode={isDarkMode}
           label="Productores por liquidar"
           value={String(
             new Set(pending.map((payment) => payment.producerFolio)).size,
@@ -370,6 +373,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
         />
         <PaymentMetric
           compact={compact}
+          isDarkMode={isDarkMode}
           label="Pagos realizados"
           value={String(
             payments.filter((payment) => payment.status === "Pagado").length,
@@ -379,6 +383,7 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
         />
         <PaymentMetric
           compact={compact}
+          isDarkMode={isDarkMode}
           label="Total pagado"
           value={formatCurrency(
             payments
@@ -859,17 +864,20 @@ export default function PaymentScreen({ compact }: { compact: boolean }) {
 
 function PaymentMetric({
   compact,
+  isDarkMode,
   label,
   value,
   note,
   icon,
 }: {
   compact: boolean;
+  isDarkMode: boolean;
   label: string;
   value: string;
   note: string;
   icon: "wallet" | "farmers" | "check" | "orchards";
 }) {
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   return (
     <View
       style={[

@@ -1,8 +1,11 @@
 import AdminDashboard from '@/screens/dashboard';
+import { AppBrand } from '@/components/app-brand';
+import { ThemeToggle } from '@/components/theme-toggle';
 import PackerHome from '@/screens/packer-home';
 import ProducerHome from '@/screens/producer-home';
 import { styles } from '@/styles/login';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatusBar } from 'expo-status-bar';
 import { createContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -139,6 +142,7 @@ export default function LoginScreen() {
     const currentRole = String(activeAccount.role).toLowerCase();
     return (
       <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+        <StatusBar style={isDarkMode ? 'light' : 'dark'} />
         {currentRole === 'admin' ? (
           <AdminDashboard
             onSignOut={handleSignOut}
@@ -176,24 +180,17 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: t.bg }]}>
+      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       <KeyboardAvoidingView style={styles.keyboardView} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={[styles.page, compact && styles.pageCompact, narrow && styles.pageNarrow]}>
             <View style={[styles.topBar, short && styles.topBarShort, { borderBottomColor: t.border }]}>
-              <Pressable onPress={toggleTheme} style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: t.border }}>
-                <Text style={{ color: t.text, fontSize: 12, fontWeight: '600' }}>
-                  {isDarkMode ? '☀️ Claro' : '🌙 Oscuro'}
-                </Text>
-              </Pressable>
+              <ThemeToggle isDarkMode={isDarkMode} onPress={toggleTheme} showLabel />
             </View>
 
             <View style={[styles.main, compact && styles.mainCompact, short && styles.mainShort]}>
               <View style={[styles.intro, compact && styles.introCompact]}>
-                <Image
-                  source={isDarkMode ? require('../../assets/images/logo-horizontal-dark.png') : require('../../assets/images/guavalink-logo.png')}
-                  style={[styles.logo, !isDarkMode && { tintColor: '#1d1d1f' }]}
-                  resizeMode="contain"
-                />
+                <AppBrand isDarkMode={isDarkMode} style={styles.logo} />
                 
                 <View style={[styles.produceFrame, short && styles.produceFrameShort]}>
                   <Image source={require('../../assets/GUAYABA-1.webp')} style={styles.produceImage} resizeMode="cover" />

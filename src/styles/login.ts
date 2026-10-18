@@ -13,7 +13,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
-  logo: { width: 142, height: 38 },
+  logo: { width: 205, height: 55 },
   main: {
     flex: 1,
     width: '100%',

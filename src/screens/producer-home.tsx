@@ -1,11 +1,11 @@
-/* eslint-disable react-hooks/refs, react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { producerName, producerQrValue } from "@/lib/domain";
+import { AppBrand } from "@/components/app-brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { roleHomeStyles as styles } from "@/styles/role-home";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -51,21 +51,6 @@ export default function ProducerHome({
   const [longitude, setLongitude] = useState("");
   const [hectares, setHectares] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
-  const spinAnim = useRef(new Animated.Value(isDarkMode ? 0 : 1)).current;
-
-  useEffect(() => {
-    Animated.timing(spinAnim, {
-      toValue: isDarkMode ? 0 : 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [isDarkMode, spinAnim]);
-
-  const spin = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
   const loadProducerData = useCallback(async () => {
     setLoading(true);
     setSchemaReady(true);
@@ -319,21 +304,13 @@ export default function ProducerHome({
           { borderBottomColor: t.border },
         ]}
       >
-        <Image
-          source={
-            isDarkMode
-              ? require("../../assets/images/logo-horizontal-dark.png")
-              : require("../../assets/images/guavalink-logo.png")
-          }
-          style={[styles.logo, !isDarkMode && { tintColor: "#111827" }]}
-          resizeMode="contain"
+        <AppBrand
+          isDarkMode={isDarkMode}
+          compact={width < 430}
+          style={width < 430 ? styles.logoCompact : styles.logo}
         />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 15 }}>
-          <Pressable onPress={toggleTheme}>
-            <Animated.View style={{ transform: [{ rotate: spin }] }}>
-              <Text style={{ fontSize: 24 }}>{isDarkMode ? "☀️" : "🌙"}</Text>
-            </Animated.View>
-          </Pressable>
+          <ThemeToggle isDarkMode={isDarkMode} onPress={toggleTheme} />
           <Pressable
             style={[styles.signOutButton, { borderColor: t.border }]}
             onPress={onSignOut}

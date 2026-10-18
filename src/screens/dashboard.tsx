@@ -1,5 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { NavGlyph, StatGlyph } from "@/components/dashboard-glyphs";
+import { AppBrand } from "@/components/app-brand";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { dashboardStyles, getDashboardTheme } from "@/styles/dashboard";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -35,6 +37,7 @@ export default function AdminDashboard({
   onSignOut,
   account,
   isDarkMode = true,
+  toggleTheme,
 }: any = {}) {
   const { width } = useWindowDimensions();
   const compact = width < 800;
@@ -118,15 +121,15 @@ export default function AdminDashboard({
       case "producers":
         return <ProducersScreen isDarkMode={isDarkMode} compact={compact} />;
       case "orchards":
-        return OrchardsView ? <OrchardsView compact={compact} /> : null;
+        return OrchardsView ? <OrchardsView compact={compact} isDarkMode={isDarkMode} /> : null;
       case "shipments":
-        return ShipmentsView ? <ShipmentsView compact={compact} /> : null;
+        return ShipmentsView ? <ShipmentsView compact={compact} isDarkMode={isDarkMode} /> : null;
       case "payments":
-        return PaymentsView ? <PaymentsView compact={compact} /> : null;
+        return PaymentsView ? <PaymentsView compact={compact} isDarkMode={isDarkMode} /> : null;
       case "reports":
-        return ReportsView ? <ReportsView compact={compact} /> : null;
+        return ReportsView ? <ReportsView compact={compact} isDarkMode={isDarkMode} /> : null;
       case "users":
-        return UsersRolesView ? <UsersRolesView compact={compact} /> : null;
+        return UsersRolesView ? <UsersRolesView compact={compact} isDarkMode={isDarkMode} /> : null;
       default:
         return (
           <ScrollView
@@ -316,15 +319,15 @@ export default function AdminDashboard({
                 compact && dashboardStyles.brandCollapsed,
               ]}
             >
-              <Text
-                style={[
-                  dashboardStyles.brandName,
-                  compact && { fontSize: 20 },
-                  { color: t.text },
-                ]}
-              >
-                {compact ? "G" : "GuavaLink"}
-              </Text>
+              <AppBrand
+                isDarkMode={isDarkMode}
+                compact={compact}
+                style={
+                  compact
+                    ? dashboardStyles.brandLogoCollapsed
+                    : dashboardStyles.brandLogo
+                }
+              />
             </View>
             {!compact && (
               <View
@@ -476,11 +479,11 @@ export default function AdminDashboard({
           >
             <View style={dashboardStyles.breadcrumb}>
               {!compact && (
-                <Text
-                  style={[dashboardStyles.breadcrumbMuted, { color: t.sub }]}
-                >
-                  GuavaLink
-                </Text>
+                <AppBrand
+                  isDarkMode={isDarkMode}
+                  compact
+                  style={{ width: 24, height: 24 }}
+                />
               )}
               {!compact && (
                 <Text
@@ -497,6 +500,10 @@ export default function AdminDashboard({
               </Text>
             </View>
             <View style={dashboardStyles.topActions}>
+              <ThemeToggle
+                isDarkMode={isDarkMode}
+                onPress={toggleTheme}
+              />
               <View
                 style={[
                   dashboardStyles.topDivider,

@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { AdminGlyph, NavGlyph } from "@/components/dashboard-glyphs";
-import { dashboardStyles } from "@/styles/dashboard";
+import { getThemedDashboardStyles } from "@/styles/dashboard";
 import { producerFullName } from "@/screens/producers";
 import { supabase } from "@/lib/supabase";
 
@@ -42,7 +42,8 @@ const accountRole = (value: string): AccountRole => {
   return "Productor";
 };
 
-export default function UsersRolesScreen({ compact }: { compact: boolean }) {
+export default function UsersRolesScreen({ compact, isDarkMode = true }: { compact: boolean; isDarkMode?: boolean }) {
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [producers, setProducers] = useState<ProducerRecord[]>([]);
   const [loading, setLoading] = useState(true);

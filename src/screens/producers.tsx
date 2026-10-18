@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { ActionGlyph, AdminGlyph } from "@/components/dashboard-glyphs";
-import { dashboardStyles } from "@/styles/dashboard";
+import { getThemedDashboardStyles } from "@/styles/dashboard";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -68,6 +68,7 @@ export default function ProducersScreen({
   isDarkMode = true,
   compact = false,
 }: ProducersScreenProps = {}) {
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const [producers, setProducers] = useState<Producer[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

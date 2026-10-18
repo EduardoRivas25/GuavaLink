@@ -1,5 +1,5 @@
-import LandingScreen from '@/screens/landing';
+import LoginScreen from '@/screens/login';
 
 export default function HomeScreen() {
-  return <LandingScreen />;
+  return <LoginScreen />;
 }
