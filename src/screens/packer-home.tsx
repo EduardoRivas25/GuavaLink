@@ -195,6 +195,7 @@ export default function PackerHome({
         {
           folio,
           producer_id: selectedProducer.id,
+          producer_folio_: selectedProducer.folio,
           producer_name: selectedProducerName,
           producer_qr: producerQr,
           qr_code: producerQr,
