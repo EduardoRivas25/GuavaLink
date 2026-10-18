@@ -1,7 +1,8 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { NavGlyph, StatGlyph } from '@/components/dashboard-glyphs';
 import { dashboardStyles, getDashboardTheme } from '@/styles/dashboard';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 
@@ -23,6 +24,8 @@ export default function AdminDashboard({
   account,
   isDarkMode = true,
 }: any = {}) {
+  const { width } = useWindowDimensions();
+  const compact = width < 800;
   const t = getDashboardTheme(isDarkMode);
   
   const [activeSection, setActiveSection] = useState('overview');
@@ -72,16 +75,16 @@ export default function AdminDashboard({
 
   const renderActiveSection = () => {
     switch (activeSection) {
-      case 'producers': return <ProducersScreen isDarkMode={isDarkMode} />;
-      case 'orchards': return OrchardsView ? <OrchardsView /> : null;
-      case 'shipments': return ShipmentsView ? <ShipmentsView /> : null;
-      case 'payments': return PaymentsView ? <PaymentsView /> : null;
-      case 'reports': return ReportsView ? <ReportsView /> : null;
-      case 'users': return UsersRolesView ? <UsersRolesView /> : null;
+      case 'producers': return <ProducersScreen isDarkMode={isDarkMode} compact={compact} />;
+      case 'orchards': return OrchardsView ? <OrchardsView compact={compact} /> : null;
+      case 'shipments': return ShipmentsView ? <ShipmentsView compact={compact} /> : null;
+      case 'payments': return PaymentsView ? <PaymentsView compact={compact} /> : null;
+      case 'reports': return ReportsView ? <ReportsView compact={compact} /> : null;
+      case 'users': return UsersRolesView ? <UsersRolesView compact={compact} /> : null;
       default:
         return (
-          <ScrollView contentContainerStyle={dashboardStyles.content} showsVerticalScrollIndicator={false}>
-            <View style={dashboardStyles.welcomeRow}>
+          <ScrollView contentContainerStyle={[dashboardStyles.content, compact && dashboardStyles.contentCompact]} showsVerticalScrollIndicator={false}>
+            <View style={[dashboardStyles.welcomeRow, compact && dashboardStyles.welcomeRowCompact]}>
               <View style={dashboardStyles.welcomeCopy}>
                 <Text style={dashboardStyles.eyebrow}>RESUMEN GENERAL</Text>
                 <Text style={[dashboardStyles.greeting, { color: t.text }]}>Hola, {account?.name || 'Administrador'}</Text>
@@ -96,7 +99,7 @@ export default function AdminDashboard({
               <ActivityIndicator size="large" color="#0071e3" style={{ marginVertical: 60 }} />
             ) : (
               <View style={dashboardStyles.statsGrid}>
-                <Pressable style={[dashboardStyles.statCard, { backgroundColor: t.card, borderColor: t.border }]} onPress={() => setActiveSection('producers')}>
+                <Pressable style={[dashboardStyles.statCard, compact && dashboardStyles.statCardCompact, { backgroundColor: t.card, borderColor: t.border }]} onPress={() => setActiveSection('producers')}>
                   <View style={dashboardStyles.statTop}>
                     <Text style={[dashboardStyles.statLabel, { color: t.sub }]}>Productores</Text>
                     <View style={dashboardStyles.statIcon}><NavGlyph name="producers" active /></View>
@@ -105,7 +108,7 @@ export default function AdminDashboard({
                   <Text style={dashboardStyles.statNote}>En padrón activo</Text>
                 </Pressable>
 
-                <Pressable style={[dashboardStyles.statCard, { backgroundColor: t.card, borderColor: t.border }]} onPress={() => setActiveSection('orchards')}>
+                <Pressable style={[dashboardStyles.statCard, compact && dashboardStyles.statCardCompact, { backgroundColor: t.card, borderColor: t.border }]} onPress={() => setActiveSection('orchards')}>
                   <View style={dashboardStyles.statTop}>
                     <Text style={[dashboardStyles.statLabel, { color: t.sub }]}>Huertas vinculadas</Text>
                     <View style={[dashboardStyles.statIcon, dashboardStyles.statIconRose]}><StatGlyph name="farmers" /></View>
@@ -114,7 +117,7 @@ export default function AdminDashboard({
                   <Text style={dashboardStyles.statNote}>Con trazabilidad</Text>
                 </Pressable>
 
-                <View style={[dashboardStyles.statCard, { backgroundColor: t.card, borderColor: t.border }]}>
+                <View style={[dashboardStyles.statCard, compact && dashboardStyles.statCardCompact, { backgroundColor: t.card, borderColor: t.border }]}>
                   <View style={dashboardStyles.statTop}>
                     <Text style={[dashboardStyles.statLabel, { color: t.sub }]}>Fruta recibida</Text>
                     <View style={[dashboardStyles.statIcon, dashboardStyles.statIconGold]}><StatGlyph name="weight" /></View>
@@ -126,7 +129,7 @@ export default function AdminDashboard({
                   <Text style={dashboardStyles.statNote}>{totalBoxes.toLocaleString()} cajas registradas</Text>
                 </View>
 
-                <Pressable style={[dashboardStyles.statCard, { backgroundColor: t.card, borderColor: t.border }]} onPress={() => setActiveSection('shipments')}>
+                <Pressable style={[dashboardStyles.statCard, compact && dashboardStyles.statCardCompact, { backgroundColor: t.card, borderColor: t.border }]} onPress={() => setActiveSection('shipments')}>
                   <View style={dashboardStyles.statTop}>
                     <Text style={[dashboardStyles.statLabel, { color: t.sub }]}>Embarques activos</Text>
                     <View style={dashboardStyles.statIcon}><StatGlyph name="truck" /></View>
@@ -144,36 +147,36 @@ export default function AdminDashboard({
   return (
     <SafeAreaView style={[dashboardStyles.safeArea, { backgroundColor: t.bg }]}>
       <View style={[dashboardStyles.shell, { backgroundColor: t.bg }]}>
-        <View style={[dashboardStyles.sidebar, { backgroundColor: t.sidebar, borderRightColor: t.border }]}>
+        <View style={[dashboardStyles.sidebar, compact && dashboardStyles.sidebarCollapsed, { backgroundColor: t.sidebar, borderRightColor: t.border }]}>
           <ScrollView style={dashboardStyles.sidebarScroll} contentContainerStyle={dashboardStyles.sidebarScrollContent}>
-            <View style={dashboardStyles.brand}>
-              <Text style={[dashboardStyles.brandName, { color: t.text }]}>GuavaLink</Text>
+            <View style={[dashboardStyles.brand, compact && dashboardStyles.brandCollapsed]}>
+              <Text style={[dashboardStyles.brandName, compact && { fontSize: 20 }, { color: t.text }]}>{compact ? 'G' : 'GuavaLink'}</Text>
             </View>
-            <View style={[dashboardStyles.packhouse, { backgroundColor: t.card, borderColor: t.border }]}>
+            {!compact && <View style={[dashboardStyles.packhouse, { backgroundColor: t.card, borderColor: t.border }]}>
               <View style={[dashboardStyles.packhouseIcon, { backgroundColor: t.active }]}><Text style={dashboardStyles.brandLeaf}>🍃</Text></View>
               <View style={dashboardStyles.packhouseCopy}>
                 <Text style={[dashboardStyles.packhouseName, { color: t.text }]}>Empaque Central</Text>
                 <Text style={[dashboardStyles.packhousePlace, { color: t.sub }]}>Uruapan, Mich.</Text>
               </View>
-            </View>
+            </View>}
 
-            <Text style={dashboardStyles.navSection}>MENÚ</Text>
+            {!compact && <Text style={dashboardStyles.navSection}>MENÚ</Text>}
             <View style={dashboardStyles.navList}>
               {navItems.map((item) => {
                 const isActive = activeSection === item.id;
                 return (
                   <Pressable
                     key={item.id}
-                    style={[dashboardStyles.navItem, isActive && { backgroundColor: t.active }]}
+                    style={[dashboardStyles.navItem, compact && dashboardStyles.navItemCollapsed, isActive && { backgroundColor: t.active }]}
                     onPress={() => setActiveSection(item.id)}
                   >
                     <View style={dashboardStyles.navGlyphBox}>
                       <NavGlyph name={item.icon} active={isActive} isDark={isDarkMode} />
                     </View>
-                    <Text style={[dashboardStyles.navLabel, isActive ? { color: t.text, fontWeight: '600' } : { color: t.sub }]}>
+                    {!compact && <Text style={[dashboardStyles.navLabel, isActive ? { color: t.text, fontWeight: '600' } : { color: t.sub }]}>
                       {item.label}
-                    </Text>
-                    {item.count !== undefined && (
+                    </Text>}
+                    {!compact && item.count !== undefined && (
                       <Text style={[dashboardStyles.navCount, { backgroundColor: t.badgeBg, color: t.text }]}>{item.count}</Text>
                     )}
                   </Pressable>
@@ -181,31 +184,31 @@ export default function AdminDashboard({
               })}
             </View>
 
-            <Text style={[dashboardStyles.navSection, dashboardStyles.adminSection]}>ADMINISTRACIÓN</Text>
+            {!compact && <Text style={[dashboardStyles.navSection, dashboardStyles.adminSection]}>ADMINISTRACIÓN</Text>}
             <View style={dashboardStyles.navList}>
               <Pressable
-                style={[dashboardStyles.navItem, activeSection === 'users' && { backgroundColor: t.active }]}
+                style={[dashboardStyles.navItem, compact && dashboardStyles.navItemCollapsed, activeSection === 'users' && { backgroundColor: t.active }]}
                 onPress={() => setActiveSection('users')}
               >
                 <View style={dashboardStyles.navGlyphBox}><NavGlyph name="users" active={activeSection === 'users'} isDark={isDarkMode} /></View>
-                <Text style={[dashboardStyles.navLabel, activeSection === 'users' ? { color: t.text, fontWeight: '600' } : { color: t.sub }]}>
+                {!compact && <Text style={[dashboardStyles.navLabel, activeSection === 'users' ? { color: t.text, fontWeight: '600' } : { color: t.sub }]}>
                   Usuarios y roles
-                </Text>
+                </Text>}
               </Pressable>
             </View>
           </ScrollView>
 
           <Pressable style={[dashboardStyles.sidebarSignOut, { borderTopColor: t.border }]} onPress={onSignOut}>
             <View style={dashboardStyles.navGlyphBox}><NavGlyph name="logout" isDark={isDarkMode} /></View>
-            <Text style={[dashboardStyles.sidebarSignOutText, { color: t.sub }]}>Cerrar sesión</Text>
+            {!compact && <Text style={[dashboardStyles.sidebarSignOutText, { color: t.sub }]}>Cerrar sesión</Text>}
           </Pressable>
         </View>
 
         <View style={dashboardStyles.mainArea}>
-          <View style={[dashboardStyles.topNav, { borderBottomColor: t.border }]}>
+          <View style={[dashboardStyles.topNav, compact && dashboardStyles.topNavCompact, { borderBottomColor: t.border }]}>
             <View style={dashboardStyles.breadcrumb}>
-              <Text style={[dashboardStyles.breadcrumbMuted, { color: t.sub }]}>GuavaLink</Text>
-              <Text style={[dashboardStyles.breadcrumbSlash, { color: t.border }]}>/</Text>
+              {!compact && <Text style={[dashboardStyles.breadcrumbMuted, { color: t.sub }]}>GuavaLink</Text>}
+              {!compact && <Text style={[dashboardStyles.breadcrumbSlash, { color: t.border }]}>/</Text>}
               <Text style={[dashboardStyles.breadcrumbActive, { color: t.text }]}>
                 {navItems.find(i => i.id === activeSection)?.label || 'Usuarios y roles'}
               </Text>

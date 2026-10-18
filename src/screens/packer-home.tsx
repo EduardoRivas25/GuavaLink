@@ -34,6 +34,7 @@ export default function PackerHome({
 }: PackerHomeProps) {
   const { width } = useWindowDimensions();
   const compact = width < 800;
+  const narrow = width < 430;
 
   const [permission, requestPermission] = useCameraPermissions();
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -146,12 +147,14 @@ export default function PackerHome({
     setSaving(true);
     try {
       const folio = `REC-${Math.floor(1000 + Math.random() * 9000)}`;
+      const producerQr = producerQrValue(selectedProducer);
       const { error } = await supabase.from('receptions').insert([
         {
           folio,
           producer_id: selectedProducer.id,
           producer_name: selectedProducerName,
-          producer_qr: producerQrValue(selectedProducer),
+          producer_qr: producerQr,
+          qr_code: producerQr,
           orchard_id: selectedOrchard.id,
           orchard_name: selectedOrchard.name,
           export_registration_id: selectedRegistration.id,
@@ -231,7 +234,7 @@ export default function PackerHome({
             <Text style={[styles.panelTitle, { color: t.text }]}>Nueva Recepción</Text>
             
             <Text style={[styles.label, { color: t.text }]}>Código QR o Productor</Text>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flexDirection: compact ? 'column' : 'row', gap: 10 }}>
               <TextInput
                 style={[styles.input, { flex: 1, backgroundColor: t.bg, borderColor: t.border, color: t.text }]}
                 placeholder="GL-PROD-..."
@@ -240,7 +243,7 @@ export default function PackerHome({
                 onChangeText={setQrInput}
                 onSubmitEditing={() => void matchProducerByQr(qrInput)}
               />
-              <Pressable style={[styles.primaryButton, { marginTop: 0 }]} onPress={handleOpenCamera}>
+              <Pressable style={[styles.primaryButton, { marginTop: 0, width: compact ? '100%' : undefined }]} onPress={handleOpenCamera}>
                 <Text style={styles.primaryButtonText}>Escanear QR</Text>
               </Pressable>
             </View>
@@ -264,7 +267,7 @@ export default function PackerHome({
               })}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flexDirection: narrow ? 'column' : 'row', gap: 12 }}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.label, { color: t.text }]}>Cajas *</Text>
                 <TextInput
