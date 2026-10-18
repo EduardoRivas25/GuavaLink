@@ -298,6 +298,16 @@ export default function PackerHome({
             <Text style={[styles.label, { color: t.text }]}>Embarque creado por administración *</Text>
             <View style={styles.chipRow}>{shipments.map((item) => <Pressable key={item.id} style={[styles.chip, { borderColor: t.border }, selectedShipment?.id === item.id && styles.chipActive]} onPress={() => setSelectedShipment(item)}><Text style={[styles.chipText, { color: t.sub }, selectedShipment?.id === item.id && styles.chipTextActive]}>{item.folio} · {item.destination}</Text></Pressable>)}</View>
 
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Guardar recepción de fruta"
+              style={[styles.primaryButton, { marginTop: 12 }]}
+              onPress={handleRegisterReception}
+              disabled={saving}
+            >
+              {saving ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.primaryButtonText}>Guardar recepción</Text>}
+            </Pressable>
+
             <Text style={[styles.label, { color: t.text }]}>Observaciones</Text>
             <TextInput
               style={[styles.input, { backgroundColor: t.bg, borderColor: t.border, color: t.text }]}
@@ -307,13 +317,6 @@ export default function PackerHome({
               onChangeText={setIncidents}
             />
 
-            <Pressable style={[styles.primaryButton, { marginTop: 12 }]} onPress={handleRegisterReception} disabled={saving}>
-              {saving ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Registrar entrega en sistema</Text>
-              )}
-            </Pressable>
           </View>
 
           <View style={[styles.panel, { backgroundColor: t.card, borderColor: t.border, flex: 1 }]}>
