@@ -3,6 +3,7 @@ import { producerName, producerQrValue } from "@/lib/domain";
 import { AppBrand } from "@/components/app-brand";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { roleHomeStyles as styles } from "@/styles/role-home";
+import { getDashboardTheme } from "@/styles/dashboard";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -51,6 +52,7 @@ export default function ProducerHome({
   const [longitude, setLongitude] = useState("");
   const [hectares, setHectares] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
+  const theme = getDashboardTheme(isDarkMode);
   const loadProducerData = useCallback(async () => {
     setLoading(true);
     setSchemaReady(true);
@@ -79,7 +81,7 @@ export default function ProducerHome({
         supabase
           .from("payments")
           .select("*")
-          .ilike("producer_name", `%${producerName(prod)}%`)
+          .eq("producer_id", prod.id)
           .order("created_at", { ascending: false }),
         supabase
           .from("orchards")
@@ -284,11 +286,12 @@ export default function ProducerHome({
     : "GUAVALINK:PRODUCER:NO-DISPONIBLE";
   const qrSize = compact ? Math.max(96, Math.min(160, width - 150)) : 180;
   const t = {
-    bg: isDarkMode ? "#000000" : "#f3f4f6",
-    card: isDarkMode ? "#1d1d1f" : "#ffffff",
-    text: isDarkMode ? "#f5f5f7" : "#111827",
-    sub: isDarkMode ? "#86868b" : "#6b7280",
-    border: isDarkMode ? "#292929" : "#d1d5db",
+    bg: theme.bg,
+    card: theme.card,
+    text: theme.text,
+    sub: theme.sub,
+    border: theme.border,
+    primary: theme.primary,
   };
   const inputStyle = [
     styles.input,
@@ -328,7 +331,7 @@ export default function ProducerHome({
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.eyebrow, { color: "#0071e3" }]}>
+        <Text style={[styles.eyebrow, { color: t.primary }]}>
           PANEL DE PRODUCTOR
         </Text>
         <Text
@@ -363,7 +366,7 @@ export default function ProducerHome({
         {loading ? (
           <ActivityIndicator
             size="large"
-            color="#0071e3"
+            color={t.primary}
             style={{ marginVertical: 40 }}
           />
         ) : (
@@ -396,7 +399,7 @@ export default function ProducerHome({
                 <Text style={[styles.cardTitle, { color: t.sub }]}>
                   CAJAS TOTALES
                 </Text>
-                <Text style={[styles.cardValue, { color: "#0071e3" }]}>
+                <Text style={[styles.cardValue, { color: t.primary }]}>
                   {totalBoxes.toLocaleString()}
                 </Text>
                 <Text style={[styles.cardDetail, { color: t.sub }]}>
@@ -536,7 +539,7 @@ export default function ProducerHome({
                       </Text>
                       <View style={{ flexDirection: "row", gap: 14 }}>
                         <Pressable onPress={() => startEditingOrchard(item)}>
-                          <Text style={{ color: "#0071e3", fontWeight: "700" }}>
+                          <Text style={{ color: t.primary, fontWeight: "700" }}>
                             Editar
                           </Text>
                         </Pressable>

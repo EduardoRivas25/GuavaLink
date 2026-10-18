@@ -71,6 +71,7 @@ export default function ProducersScreen({
   const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const [producers, setProducers] = useState<Producer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -96,7 +97,13 @@ export default function ProducersScreen({
         .order("created_at", { ascending: false });
       if (error) throw error;
       setProducers((data || []).map(normalizeProducer));
-    } catch {
+      setLoadError("");
+    } catch (error) {
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : "No fue posible cargar los productores.",
+      );
     } finally {
       setLoading(false);
     }
@@ -219,6 +226,19 @@ export default function ProducersScreen({
         </View>
       </View>
 
+      {loadError ? (
+        <Text
+          accessibilityRole="alert"
+          style={{
+            marginBottom: 16,
+            color: isDarkMode ? "#fca5a5" : "#b91c1c",
+            fontSize: 13,
+          }}
+        >
+          No se pudieron cargar los productores: {loadError}
+        </Text>
+      ) : null}
+
       <View
         style={[
           dashboardStyles.producerToolbar,
@@ -248,7 +268,9 @@ export default function ProducersScreen({
         </View>
       ) : filtered.length === 0 ? (
         <Text style={dashboardStyles.emptyText}>
-          No hay productores registrados.
+          {searchQuery.trim()
+            ? "No hay productores que coincidan con la búsqueda."
+            : "No hay productores registrados."}
         </Text>
       ) : compact ? (
         <View style={dashboardStyles.producerCards}>
@@ -312,149 +334,158 @@ export default function ProducersScreen({
           ))}
         </View>
       ) : (
-        <View style={dashboardStyles.userTable}>
-          <View
-            style={[
-              dashboardStyles.producerTableRow,
-              dashboardStyles.producerTableHeader,
-            ]}
-          >
-            <Text
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator
+          style={dashboardStyles.producerDirectory}
+        >
+          <View style={dashboardStyles.userTable}>
+            <View
               style={[
-                dashboardStyles.producerColumn,
-                dashboardStyles.userNameCol,
-                dashboardStyles.tableHeading,
+                dashboardStyles.producerTableRow,
+                dashboardStyles.producerTableHeader,
               ]}
             >
-              PRODUCTOR
-            </Text>
-            <Text
-              style={[
-                dashboardStyles.producerColumn,
-                dashboardStyles.userEmailCol,
-                dashboardStyles.tableHeading,
-              ]}
-            >
-              MUNICIPIO
-            </Text>
-            <Text
-              style={[
-                dashboardStyles.producerColumn,
-                dashboardStyles.userRoleCol,
-                dashboardStyles.tableHeading,
-              ]}
-            >
-              CÓDIGO QR
-            </Text>
-            <Text
-              style={[
-                dashboardStyles.producerColumn,
-                dashboardStyles.userStatusCol,
-                dashboardStyles.tableHeading,
-              ]}
-            >
-              ESTADO
-            </Text>
-            <Text
-              style={[
-                dashboardStyles.producerColumn,
-                dashboardStyles.userActionsCol,
-                dashboardStyles.tableHeading,
-              ]}
-            >
-              ACCIONES
-            </Text>
-          </View>
-          {filtered.map((producer) => (
-            <View key={producer.id} style={dashboardStyles.producerTableRow}>
-              <View
+              <Text
                 style={[
                   dashboardStyles.producerColumn,
                   dashboardStyles.userNameCol,
-                  dashboardStyles.producerNameCell,
+                  dashboardStyles.tableHeading,
                 ]}
               >
-                <View style={dashboardStyles.producerAvatar}>
-                  <Text style={dashboardStyles.producerInitials}>
-                    {producer.name
-                      .split(" ")
-                      .map((p) => p[0])
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase()}
-                  </Text>
-                </View>
-                <Text style={dashboardStyles.producerName}>
-                  {producer.name}
-                </Text>
-              </View>
+                PRODUCTOR
+              </Text>
               <Text
                 style={[
                   dashboardStyles.producerColumn,
                   dashboardStyles.userEmailCol,
-                  dashboardStyles.producerMeta,
+                  dashboardStyles.tableHeading,
                 ]}
               >
-                {producer.municipality || "No especificado"}
+                MUNICIPIO
               </Text>
-              <View
+              <Text
                 style={[
                   dashboardStyles.producerColumn,
                   dashboardStyles.userRoleCol,
+                  dashboardStyles.tableHeading,
                 ]}
               >
-                <Text
-                  style={{ color: "#22C55E", fontWeight: "700", fontSize: 13 }}
-                >
-                  {producer.qr_code}
-                </Text>
-              </View>
-              <View
+                FOLIO
+              </Text>
+              <Text
                 style={[
                   dashboardStyles.producerColumn,
                   dashboardStyles.userStatusCol,
+                  dashboardStyles.tableHeading,
                 ]}
               >
-                <Text
-                  style={[
-                    dashboardStyles.statusBadge,
-                    producer.status === "Activo"
-                      ? dashboardStyles.statusActive
-                      : dashboardStyles.statusInactive,
-                  ]}
-                >
-                  {producer.status}
-                </Text>
-              </View>
-              <View
+                ESTADO
+              </Text>
+              <Text
                 style={[
                   dashboardStyles.producerColumn,
                   dashboardStyles.userActionsCol,
+                  dashboardStyles.tableHeading,
                 ]}
               >
-                <Pressable
-                  style={dashboardStyles.userActionButton}
-                  onPress={() => setQrModalProducer(producer)}
-                >
-                  <ActionGlyph name="qr" />
-                  <Text style={dashboardStyles.userActionText}>Ver QR</Text>
-                </Pressable>
-                <Pressable
-                  style={dashboardStyles.userActionButton}
-                  onPress={() => openEditModal(producer)}
-                >
-                  <ActionGlyph name="edit" />
-                </Pressable>
-                <Pressable
-                  style={dashboardStyles.userActionButton}
-                  onPress={() => handleDelete(producer.id)}
-                >
-                  <ActionGlyph name="delete" />
-                </Pressable>
-              </View>
+                ACCIONES
+              </Text>
             </View>
-          ))}
-        </View>
+            {filtered.map((producer) => (
+              <View key={producer.id} style={dashboardStyles.producerTableRow}>
+                <View
+                  style={[
+                    dashboardStyles.producerColumn,
+                    dashboardStyles.userNameCol,
+                    dashboardStyles.producerNameCell,
+                  ]}
+                >
+                  <View style={dashboardStyles.producerAvatar}>
+                    <Text style={dashboardStyles.producerInitials}>
+                      {producer.name
+                        .split(" ")
+                        .map((p) => p[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={dashboardStyles.producerName}>
+                    {producer.name}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    dashboardStyles.producerColumn,
+                    dashboardStyles.userEmailCol,
+                    dashboardStyles.producerMeta,
+                  ]}
+                >
+                  {producer.municipality || "No especificado"}
+                </Text>
+                <View
+                  style={[
+                    dashboardStyles.producerColumn,
+                    dashboardStyles.userRoleCol,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      dashboardStyles.producerName,
+                      { color: isDarkMode ? "#4ade80" : "#15803d" },
+                    ]}
+                  >
+                    {producer.folio}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    dashboardStyles.producerColumn,
+                    dashboardStyles.userStatusCol,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      dashboardStyles.statusBadge,
+                      producer.status === "Activo"
+                        ? dashboardStyles.statusActive
+                        : dashboardStyles.statusInactive,
+                    ]}
+                  >
+                    {producer.status}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    dashboardStyles.producerColumn,
+                    dashboardStyles.userActionsCol,
+                  ]}
+                >
+                  <Pressable
+                    style={dashboardStyles.userActionButton}
+                    onPress={() => setQrModalProducer(producer)}
+                  >
+                    <ActionGlyph name="qr" />
+                    <Text style={dashboardStyles.userActionText}>Ver QR</Text>
+                  </Pressable>
+                  <Pressable
+                    style={dashboardStyles.userActionButton}
+                    onPress={() => openEditModal(producer)}
+                  >
+                    <ActionGlyph name="edit" />
+                  </Pressable>
+                  <Pressable
+                    style={dashboardStyles.userActionButton}
+                    onPress={() => handleDelete(producer.id)}
+                  >
+                    <ActionGlyph name="delete" />
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       )}
 
       <Modal visible={!!qrModalProducer} transparent animationType="fade">
@@ -475,13 +506,15 @@ export default function ProducersScreen({
             </Text>
             <Text
               style={{
-                color: "#22C55E",
+                color: isDarkMode ? "#4ade80" : "#15803d",
                 fontWeight: "700",
                 textAlign: "center",
                 marginBottom: 16,
+                fontSize: 12,
+                lineHeight: 18,
               }}
             >
-              {qrModalProducer?.qr_code}
+              Folio del productor: {qrModalProducer?.folio}
             </Text>
             <View style={{ alignItems: "center" }}>
               {qrModalProducer && (

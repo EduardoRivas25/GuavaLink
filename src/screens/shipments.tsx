@@ -6,7 +6,10 @@ import {
   StatGlyph,
 } from "@/components/dashboard-glyphs";
 import { supabase } from "@/lib/supabase";
-import { getThemedDashboardStyles } from "@/styles/dashboard";
+import {
+  getDashboardTheme,
+  getThemedDashboardStyles,
+} from "@/styles/dashboard";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -29,6 +32,12 @@ type Shipment = {
   kilos: number;
   status: ShipmentStatus;
   initials: string;
+};
+type PendingReception = {
+  id: string;
+  folio: string;
+  producer_name: string | null;
+  weight_kg: number | string | null;
 };
 const shipmentStatuses: ShipmentStatus[] = [
   "En preparación",
@@ -58,6 +67,7 @@ export default function ShipmentScreen({
   isDarkMode?: boolean;
 }) {
   const dashboardStyles = getThemedDashboardStyles(isDarkMode);
+  const theme = getDashboardTheme(isDarkMode);
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -65,19 +75,31 @@ export default function ShipmentScreen({
   const [editing, setEditing] = useState<Shipment | null>(null);
   const [destination, setDestination] = useState("");
   const [departure, setDeparture] = useState("");
+  const [pendingReceptions, setPendingReceptions] = useState<PendingReception[]>([]);
+  const [selectedReceptionIds, setSelectedReceptionIds] = useState<string[]>([]);
+  const [targetShipmentId, setTargetShipmentId] = useState("");
 
   const loadShipments = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("shipments")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [shipmentsResult, receptionsResult] = await Promise.all([
+      supabase.from("shipments").select("*").order("created_at", { ascending: false }),
+      supabase
+        .from("receptions")
+        .select("id,folio,producer_name,weight_kg")
+        .eq("status", "Validada")
+        .is("shipment_id", null)
+        .order("created_at", { ascending: false }),
+    ]);
     setLoading(false);
-    if (error) {
-      Alert.alert("No se pudieron cargar los embarques", error.message);
+    if (shipmentsResult.error || receptionsResult.error) {
+      Alert.alert(
+        "No se pudo cargar el flujo de embarques",
+        shipmentsResult.error?.message || receptionsResult.error?.message,
+      );
       return;
     }
-    setShipments((data || []).map(withInitials));
+    setShipments((shipmentsResult.data || []).map(withInitials));
+    setPendingReceptions(receptionsResult.data || []);
   }, []);
 
   useEffect(() => {
@@ -94,6 +116,11 @@ export default function ShipmentScreen({
         .toLowerCase()
         .includes(query.toLowerCase()) &&
       (filter === "Todos" || shipment.status === filter),
+  );
+  const assignableShipments = shipments.filter(
+    (shipment) =>
+      shipment.status === "En preparación" ||
+      shipment.status === "Listo para salir",
   );
   const openForm = (shipment?: Shipment) => {
     setEditing(
@@ -144,11 +171,10 @@ export default function ShipmentScreen({
   };
 
   const cycleStatus = async (shipment: Shipment) => {
+    const currentIndex = shipmentStatuses.indexOf(shipment.status);
+    if (currentIndex < 0 || currentIndex >= shipmentStatuses.length - 1) return;
     const status =
-      shipmentStatuses[
-        (shipmentStatuses.indexOf(shipment.status) + 1) %
-          shipmentStatuses.length
-      ];
+      shipmentStatuses[currentIndex + 1];
     const { error } = await supabase
       .from("shipments")
       .update({ status })
@@ -161,6 +187,46 @@ export default function ShipmentScreen({
       current.map((item) =>
         item.id === shipment.id ? { ...item, status } : item,
       ),
+    );
+  };
+
+  const assignReceptions = async () => {
+    const shipment = shipments.find((item) => item.id === targetShipmentId);
+    if (!shipment || selectedReceptionIds.length === 0) {
+      Alert.alert("Selecciona datos", "Elige un embarque y al menos una recepción.");
+      return;
+    }
+    if (shipment.status === "En tránsito" || shipment.status === "Entregado") {
+      Alert.alert("Embarque cerrado", "No se pueden asignar recepciones a este embarque.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("receptions")
+      .update({
+        shipment_id: shipment.id,
+        shipment_folio: shipment.folio,
+        concepto: `Recepción de guayaba · ${shipment.folio}`,
+      })
+      .in("id", selectedReceptionIds)
+      .is("shipment_id", null)
+      .select("id");
+    if (error) {
+      Alert.alert("No se pudieron asignar las recepciones", error.message);
+      return;
+    }
+    if ((data || []).length !== selectedReceptionIds.length) {
+      Alert.alert(
+        "Asignación incompleta",
+        "Algunas recepciones cambiaron desde que se cargó la lista. Actualiza y vuelve a seleccionar.",
+      );
+    }
+    setSelectedReceptionIds([]);
+    void loadShipments();
+  };
+
+  const toggleReception = (id: string) => {
+    setSelectedReceptionIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     );
   };
 
@@ -237,6 +303,92 @@ export default function ShipmentScreen({
             <Text style={dashboardStyles.newButtonText}>Nuevo embarque</Text>
           </Pressable>
         </View>
+      </View>
+      <View
+        style={{
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+          borderWidth: 1,
+          borderRadius: 20,
+          padding: compact ? 16 : 22,
+          marginBottom: 20,
+        }}
+      >
+        <Text style={dashboardStyles.panelTitle}>Asignación de recepciones validadas</Text>
+        <Text style={dashboardStyles.formHint}>
+          Selecciona recepciones pendientes y asígnalas a un embarque que aún no haya salido.
+        </Text>
+        {pendingReceptions.length === 0 ? (
+          <Text style={dashboardStyles.emptyText}>No hay recepciones validadas pendientes de embarque.</Text>
+        ) : (
+          <>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginVertical: 12 }}>
+              {assignableShipments.length === 0 ? (
+                <Text style={dashboardStyles.emptyText}>
+                  Crea un embarque antes de iniciar la asignación.
+                </Text>
+              ) : (
+                assignableShipments.map((shipment) => (
+                  <Pressable
+                    key={shipment.id}
+                    accessibilityRole="button"
+                    onPress={() => setTargetShipmentId(shipment.id)}
+                    style={{
+                      borderWidth: 1,
+                      borderColor: targetShipmentId === shipment.id ? theme.primary : theme.inputBorder,
+                      borderRadius: 18,
+                      paddingHorizontal: 12,
+                      paddingVertical: 8,
+                      backgroundColor: targetShipmentId === shipment.id ? theme.primarySoft : "transparent",
+                    }}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 13 }}>
+                      {shipment.folio} · {shipment.destination}
+                    </Text>
+                  </Pressable>
+                ))
+              )}
+            </View>
+            {pendingReceptions.map((reception) => {
+              const selected = selectedReceptionIds.includes(reception.id);
+              return (
+                <Pressable
+                  key={reception.id}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  onPress={() => toggleReception(reception.id)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingVertical: 10,
+                    borderTopWidth: 1,
+                    borderTopColor: theme.border,
+                    gap: 10,
+                  }}
+                >
+                  <Text style={{ color: selected ? theme.primary : theme.sub, fontSize: 18 }}>
+                    {selected ? "☑" : "☐"}
+                  </Text>
+                  <Text style={{ flex: 1, color: theme.text }}>
+                    {reception.folio} · {reception.producer_name || "Sin productor"}
+                  </Text>
+                  <Text style={{ color: theme.muted }}>
+                    {Number(reception.weight_kg || 0).toLocaleString("es-MX")} kg
+                  </Text>
+                </Pressable>
+              );
+            })}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void assignReceptions()}
+              style={[dashboardStyles.newButton, { alignSelf: "flex-start", marginTop: 14 }]}
+            >
+              <Text style={dashboardStyles.newButtonText}>
+                Asignar {selectedReceptionIds.length || ""} recepción(es)
+              </Text>
+            </Pressable>
+          </>
+        )}
       </View>
       <View style={dashboardStyles.producerStats}>
         <View
@@ -323,7 +475,7 @@ export default function ShipmentScreen({
       </View>
       {loading ? (
         <View style={dashboardStyles.chartWrap}>
-          <ActivityIndicator size="large" color="#0071e3" />
+          <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : compact ? (
         <View style={dashboardStyles.producerCards}>
@@ -349,6 +501,7 @@ export default function ShipmentScreen({
                   {shipment.kilos.toLocaleString("es-MX")} kg
                 </Text>
                 <Pressable
+                  disabled={shipment.status === "Entregado"}
                   onPress={() => void cycleStatus(shipment)}
                   style={[
                     dashboardStyles.statusBadge,
@@ -500,6 +653,7 @@ export default function ShipmentScreen({
                   ]}
                 >
                   <Pressable
+                    disabled={shipment.status === "Entregado"}
                     onPress={() => void cycleStatus(shipment)}
                     style={[
                       dashboardStyles.statusBadge,

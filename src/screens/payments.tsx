@@ -27,6 +27,18 @@ type Payment = {
   amount: number;
   date: string;
   status: PaymentStatus;
+  receptionCount: number;
+};
+type Reception = {
+  id: string;
+  folio: string;
+  producer_id: string | null;
+  producer_name: string | null;
+  orchard_name: string | null;
+  weight_kg: number | string | null;
+  accepted_weight_kg: number | string | null;
+  price_per_kg: number | string | null;
+  validated_at: string | null;
 };
 type ProducerRecord = {
   id: string;
@@ -46,6 +58,7 @@ const normalizePayment = (row: any): Payment => ({
   amount: Number(row.amount) || 0,
   date: row.date || "",
   status: row.status === "Pagado" ? "Pagado" : "Pendiente",
+  receptionCount: Number(row.reception_count) || 0,
 });
 
 const localIsoDate = () => {
@@ -63,6 +76,14 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
   const dashboardStyles = getThemedDashboardStyles(isDarkMode);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [producers, setProducers] = useState<ProducerRecord[]>([]);
+  const [receptions, setReceptions] = useState<Reception[]>([]);
+  const [paidReceptionIds, setPaidReceptionIds] = useState<string[]>([]);
+  const [receptionDrafts, setReceptionDrafts] = useState<
+    Record<string, { acceptedWeight: string; pricePerKg: string }>
+  >({});
+  const [selectedReceptionIds, setSelectedReceptionIds] = useState<string[]>(
+    [],
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -79,7 +100,12 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [paymentsResult, producersResult] = await Promise.all([
+      const [
+        paymentsResult,
+        producersResult,
+        paymentReceptionsResult,
+        receptionsResult,
+      ] = await Promise.all([
         supabase
           .from("payments")
           .select("*")
@@ -88,11 +114,38 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
           .from("producers")
           .select("id,folio,nombres,apellidos,active,status")
           .order("nombres"),
+        supabase.from("payment_receptions").select("payment_id,reception_id"),
+        supabase
+          .from("receptions")
+          .select(
+            "id,folio,producer_id,producer_name,orchard_name,weight_kg,accepted_weight_kg,price_per_kg,validated_at",
+          )
+          .order("created_at", { ascending: false }),
       ]);
       if (paymentsResult.error) throw paymentsResult.error;
       if (producersResult.error) throw producersResult.error;
-      setPayments((paymentsResult.data || []).map(normalizePayment));
+      if (paymentReceptionsResult.error) throw paymentReceptionsResult.error;
+      if (receptionsResult.error) throw receptionsResult.error;
+      const receptionCounts = new Map<string, number>();
+      for (const row of paymentReceptionsResult.data || []) {
+        receptionCounts.set(
+          row.payment_id,
+          (receptionCounts.get(row.payment_id) || 0) + 1,
+        );
+      }
+      setPayments(
+        (paymentsResult.data || []).map((row) =>
+          normalizePayment({
+            ...row,
+            reception_count: receptionCounts.get(row.id) || 0,
+          }),
+        ),
+      );
       setProducers((producersResult.data || []) as ProducerRecord[]);
+      setReceptions((receptionsResult.data || []) as Reception[]);
+      setPaidReceptionIds(
+        (paymentReceptionsResult.data || []).map((row) => row.reception_id),
+      );
       setMessage("");
     } catch (error: any) {
       setMessage(error.message || "No fue posible cargar los pagos.");
@@ -108,6 +161,24 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
   const activeProducers = producers.filter(
     (item) => item.active !== false && item.status !== "Inactivo",
   );
+  const receptionsAwaitingValidation = receptions.filter(
+    (reception) => !reception.validated_at,
+  );
+  const producerAvailableReceptions = receptions.filter(
+    (reception) =>
+      reception.validated_at &&
+      reception.producer_id ===
+        producers.find((item) => item.folio === producerFolio)?.id &&
+      !paidReceptionIds.includes(reception.id),
+  );
+  const selectedReceptions = producerAvailableReceptions.filter((item) =>
+    selectedReceptionIds.includes(item.id),
+  );
+  const selectedAmount = selectedReceptions.reduce((sum, reception) => {
+    const acceptedWeight = Number(reception.accepted_weight_kg) || 0;
+    const pricePerKg = Number(reception.price_per_kg) || 0;
+    return sum + Math.round(acceptedWeight * pricePerKg * 100) / 100;
+  }, 0);
   const pending = payments.filter((payment) => payment.status === "Pendiente");
   const visible = payments.filter((payment) => {
     const producer = producers.find(
@@ -120,6 +191,13 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
     return matches && (filter === "Todos" || payment.status === filter);
   });
   const openForm = (payment?: Payment) => {
+    if (payment?.receptionCount) {
+      Alert.alert(
+        "Pago vinculado a recepciones",
+        "Este pago conserva el detalle de sus recepciones y no puede editarse desde el formulario.",
+      );
+      return;
+    }
     const nextFolio =
       Math.max(
         0,
@@ -138,9 +216,11 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
         amount: 0,
         date: "",
         status: "Pendiente",
+        receptionCount: 0,
       },
     );
     setProducerFolio(payment?.producerFolio ?? defaultProducer?.folio ?? "");
+    setSelectedReceptionIds([]);
     setOrchard(
       payment?.orchard === "Sin huerta asignada"
         ? ""
@@ -152,6 +232,62 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
     );
     setStatus(payment?.status ?? "Pendiente");
   };
+  const validateReception = async (reception: Reception) => {
+    const draft = receptionDrafts[reception.id];
+    const acceptedWeight = Number(
+      draft?.acceptedWeight ?? reception.weight_kg ?? 0,
+    );
+    const pricePerKg = Number(draft?.pricePerKg ?? "");
+    if (
+      !Number.isFinite(acceptedWeight) ||
+      acceptedWeight <= 0 ||
+      !Number.isFinite(pricePerKg) ||
+      pricePerKg <= 0
+    ) {
+      Alert.alert(
+        "Revisa los datos",
+        "Los kilos aceptados y el precio por kilo deben ser mayores a cero.",
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      const validatedAt = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("receptions")
+        .update({
+          accepted_weight_kg: acceptedWeight,
+          price_per_kg: pricePerKg,
+          validated_at: validatedAt,
+          status: "Validada",
+        })
+        .eq("id", reception.id)
+        .is("validated_at", null)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) {
+        throw new Error("La recepción ya fue validada o no se pudo actualizar.");
+      }
+      setReceptions((items) =>
+        items.map((item) =>
+          item.id === reception.id
+            ? {
+                ...item,
+                accepted_weight_kg: acceptedWeight,
+                price_per_kg: pricePerKg,
+                validated_at: validatedAt,
+              }
+            : item,
+        ),
+      );
+      setMessage(`✅ Recepción ${reception.folio} validada.`);
+    } catch (error: any) {
+      setMessage(error.message || "No fue posible validar la recepción.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const save = async () => {
     const parsedAmount = Number(amount.replace(/[,$\s]/g, ""));
     const selectedProducer = producers.find(
@@ -160,18 +296,57 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
     if (
       !editing ||
       !selectedProducer ||
-      !Number.isFinite(parsedAmount) ||
-      parsedAmount <= 0 ||
-      !date.trim()
+      !date.trim() ||
+      (Boolean(editing.id) &&
+        (!Number.isFinite(parsedAmount) || parsedAmount <= 0)) ||
+      (!editing.id &&
+        (selectedReceptions.length === 0 || selectedAmount <= 0))
     ) {
       Alert.alert(
         "Revisa los datos",
-        "Selecciona un productor e ingresa un importe mayor a cero y una fecha.",
+        editing?.id
+          ? "Selecciona un productor e ingresa un importe mayor a cero y una fecha."
+          : "Selecciona productor, al menos una recepción disponible y una fecha.",
       );
+      return;
+    }
+    if (!editing.id) {
+      const orchards = [
+        ...new Set(
+          selectedReceptions
+            .map((reception) => reception.orchard_name)
+            .filter((name): name is string => Boolean(name)),
+        ),
+      ];
+      setSaving(true);
+      try {
+        const { data, error } = await supabase.rpc(
+          "create_payment_from_receptions",
+          {
+            p_folio: editing.folio,
+            p_producer_id: selectedProducer.id,
+            p_producer_folio: selectedProducer.folio,
+            p_producer_name: producerFullName(selectedProducer),
+            p_orchard: orchards.join(", "),
+            p_date: date.trim(),
+            p_reception_ids: selectedReceptionIds,
+          },
+        );
+        if (error) throw error;
+        if (!data) throw new Error("Supabase no confirmó la creación del pago.");
+        setEditing(null);
+        await loadData();
+        setMessage("✅ Pago creado con las recepciones seleccionadas.");
+      } catch (error: any) {
+        setMessage(error.message || "No fue posible crear el pago.");
+      } finally {
+        setSaving(false);
+      }
       return;
     }
     const payload = {
       folio: editing.folio,
+      producer_id: selectedProducer.id,
       producer_folio: selectedProducer.folio,
       producer_name: producerFullName(selectedProducer),
       orchard: orchard.trim() || "Sin huerta asignada",
@@ -235,6 +410,11 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
 
   const removePayment = async () => {
     if (!deleteTarget) return;
+    if (deleteTarget.receptionCount > 0) {
+      setMessage("Los pagos vinculados a recepciones no se pueden eliminar.");
+      setDeleteTarget(null);
+      return;
+    }
     setSaving(true);
     try {
       const { data, error } = await supabase
@@ -350,6 +530,114 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
       ) : null}
       {loading ? <ActivityIndicator color="#0071e3" size="large" /> : null}
 
+      <View
+        style={{
+          marginBottom: 20,
+          padding: 18,
+          borderRadius: 18,
+          backgroundColor: isDarkMode ? "#1d1d1f" : "#ffffff",
+          borderWidth: 1,
+          borderColor: isDarkMode ? "#333336" : "#e5e7eb",
+        }}
+      >
+        <Text style={dashboardStyles.panelTitle}>Recepciones por validar</Text>
+        <Text style={dashboardStyles.formHint}>
+          Confirma los kilos aceptados y el precio por kilo antes de incluir una
+          recepción en un pago.
+        </Text>
+        {receptionsAwaitingValidation.length === 0 ? (
+          <Text style={dashboardStyles.emptyText}>
+            No hay recepciones pendientes de validación.
+          </Text>
+        ) : (
+          receptionsAwaitingValidation.map((reception) => {
+            const draft = receptionDrafts[reception.id];
+            return (
+              <View
+                key={reception.id}
+                style={{
+                  marginTop: 14,
+                  paddingTop: 14,
+                  borderTopWidth: 1,
+                  borderTopColor: isDarkMode ? "#333336" : "#e5e7eb",
+                }}
+              >
+                <Text style={dashboardStyles.producerName}>
+                  {reception.folio} · {reception.producer_name || "Productor"}
+                </Text>
+                <Text style={dashboardStyles.producerMeta}>
+                  {reception.orchard_name || "Huerta sin especificar"} ·{" "}
+                  {Number(reception.weight_kg) || 0} kg recibidos
+                </Text>
+                <Text style={dashboardStyles.fieldLabel}>
+                  Kilos aceptados
+                </Text>
+                <TextInput
+                  value={
+                    draft?.acceptedWeight ??
+                    String(Number(reception.weight_kg) || "")
+                  }
+                  onChangeText={(value) =>
+                    setReceptionDrafts((items) => ({
+                      ...items,
+                      [reception.id]: {
+                        acceptedWeight: value,
+                        pricePerKg:
+                          items[reception.id]?.pricePerKg ??
+                          String(Number(reception.price_per_kg) || ""),
+                      },
+                    }))
+                  }
+                  keyboardType="decimal-pad"
+                  placeholder="Ej. 450"
+                  placeholderTextColor="#86868b"
+                  style={dashboardStyles.formInput}
+                  accessibilityLabel={`Kilos aceptados para recepción ${reception.folio}`}
+                />
+                <Text style={dashboardStyles.fieldLabel}>
+                  Precio por kilo (MXN)
+                </Text>
+                <TextInput
+                  value={
+                    draft?.pricePerKg ??
+                    String(Number(reception.price_per_kg) || "")
+                  }
+                  onChangeText={(value) =>
+                    setReceptionDrafts((items) => ({
+                      ...items,
+                      [reception.id]: {
+                        acceptedWeight:
+                          items[reception.id]?.acceptedWeight ??
+                          String(Number(reception.weight_kg) || ""),
+                        pricePerKg: value,
+                      },
+                    }))
+                  }
+                  keyboardType="decimal-pad"
+                  placeholder="Ej. 12.50"
+                  placeholderTextColor="#86868b"
+                  style={dashboardStyles.formInput}
+                  accessibilityLabel={`Precio por kilo de recepción ${reception.folio}`}
+                />
+                <Pressable
+                  onPress={() => void validateReception(reception)}
+                  disabled={saving}
+                  style={[
+                    dashboardStyles.newButton,
+                    { alignSelf: "flex-start", marginTop: 12 },
+                    saving && { opacity: 0.6 },
+                  ]}
+                >
+                  <Text style={dashboardStyles.newButtonText}>
+                    Validar recepción
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })
+        )}
+      </View>
+
       <View style={dashboardStyles.paymentStats}>
         <PaymentMetric
           compact={compact}
@@ -457,6 +745,11 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
                   <Text style={dashboardStyles.producerMeta}>
                     {payment.date}
                   </Text>
+                  {payment.receptionCount > 0 ? (
+                    <Text style={dashboardStyles.producerMeta}>
+                      {payment.receptionCount} recepciones incluidas
+                    </Text>
+                  ) : null}
                 </View>
                 <Text
                   style={[
@@ -471,18 +764,22 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
                 <Text style={dashboardStyles.paymentAmount}>
                   {formatCurrency(payment.amount)}
                 </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => openForm(payment)}
-                >
-                  <ActionGlyph name="edit" />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setDeleteTarget(payment)}
-                >
-                  <ActionGlyph name="delete" />
-                </Pressable>
+                {payment.receptionCount === 0 ? (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => openForm(payment)}
+                    >
+                      <ActionGlyph name="edit" />
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setDeleteTarget(payment)}
+                    >
+                      <ActionGlyph name="delete" />
+                    </Pressable>
+                  </>
+                ) : null}
                 {payment.status === "Pendiente" && (
                   <Pressable
                     style={dashboardStyles.registerPaymentButton}
@@ -604,6 +901,11 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
                   <Text style={dashboardStyles.producerMeta}>
                     {payment.orchard}
                   </Text>
+                  {payment.receptionCount > 0 ? (
+                    <Text style={dashboardStyles.producerSubMeta}>
+                      {payment.receptionCount} recepciones incluidas
+                    </Text>
+                  ) : null}
                   <Text style={dashboardStyles.producerSubMeta}>
                     {payment.date}
                   </Text>
@@ -648,18 +950,22 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
                       </Text>
                     </Pressable>
                   )}
-                  <Pressable
-                    accessibilityLabel={`Editar pago ${payment.folio}`}
-                    onPress={() => openForm(payment)}
-                  >
-                    <ActionGlyph name="edit" />
-                  </Pressable>
-                  <Pressable
-                    accessibilityLabel={`Eliminar pago ${payment.folio}`}
-                    onPress={() => setDeleteTarget(payment)}
-                  >
-                    <ActionGlyph name="delete" />
-                  </Pressable>
+                  {payment.receptionCount === 0 ? (
+                    <>
+                      <Pressable
+                        accessibilityLabel={`Editar pago ${payment.folio}`}
+                        onPress={() => openForm(payment)}
+                      >
+                        <ActionGlyph name="edit" />
+                      </Pressable>
+                      <Pressable
+                        accessibilityLabel={`Eliminar pago ${payment.folio}`}
+                        onPress={() => setDeleteTarget(payment)}
+                      >
+                        <ActionGlyph name="delete" />
+                      </Pressable>
+                    </>
+                  ) : null}
                 </View>
               </View>
             ))}
@@ -701,14 +1007,19 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
                   : "Crear pago"}
               </Text>
               <Text style={dashboardStyles.formHint}>
-                Elige al productor y registra el importe del pago.
+                {editing?.id
+                  ? "Actualiza los datos del pago existente."
+                  : "Selecciona las recepciones validadas que cubrirá este pago."}
               </Text>
               <Text style={dashboardStyles.fieldLabel}>Productor</Text>
               <View style={dashboardStyles.paymentProducerOptions}>
                 {activeProducers.map((producer) => (
                   <Pressable
                     key={producer.folio}
-                    onPress={() => setProducerFolio(producer.folio)}
+                    onPress={() => {
+                      setProducerFolio(producer.folio);
+                      setSelectedReceptionIds([]);
+                    }}
                     style={[
                       dashboardStyles.paymentProducerOption,
                       producerFolio === producer.folio &&
@@ -727,23 +1038,87 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
                   </Pressable>
                 ))}
               </View>
-              <Text style={dashboardStyles.fieldLabel}>Huerta (opcional)</Text>
-              <TextInput
-                value={orchard}
-                onChangeText={setOrchard}
-                placeholder="Nombre de la huerta o déjalo vacío"
-                placeholderTextColor="#86868b"
-                style={dashboardStyles.formInput}
-              />
-              <Text style={dashboardStyles.fieldLabel}>Importe (MXN)</Text>
-              <TextInput
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="decimal-pad"
-                placeholder="Ej. 22500"
-                placeholderTextColor="#86868b"
-                style={dashboardStyles.formInput}
-              />
+              {editing?.id ? (
+                <>
+                  <Text style={dashboardStyles.fieldLabel}>
+                    Huerta (opcional)
+                  </Text>
+                  <TextInput
+                    value={orchard}
+                    onChangeText={setOrchard}
+                    placeholder="Nombre de la huerta o déjalo vacío"
+                    placeholderTextColor="#86868b"
+                    style={dashboardStyles.formInput}
+                  />
+                  <Text style={dashboardStyles.fieldLabel}>Importe (MXN)</Text>
+                  <TextInput
+                    value={amount}
+                    onChangeText={setAmount}
+                    keyboardType="decimal-pad"
+                    placeholder="Ej. 22500"
+                    placeholderTextColor="#86868b"
+                    style={dashboardStyles.formInput}
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={dashboardStyles.fieldLabel}>
+                    Recepciones disponibles
+                  </Text>
+                  {producerAvailableReceptions.length === 0 ? (
+                    <Text style={dashboardStyles.emptyText}>
+                      Este productor no tiene recepciones validadas y pendientes
+                      de pago.
+                    </Text>
+                  ) : (
+                    producerAvailableReceptions.map((reception) => {
+                      const selected = selectedReceptionIds.includes(
+                        reception.id,
+                      );
+                      const kilos = Number(reception.accepted_weight_kg) || 0;
+                      const price = Number(reception.price_per_kg) || 0;
+                      return (
+                        <Pressable
+                          key={reception.id}
+                          accessibilityRole="checkbox"
+                          accessibilityState={{ checked: selected }}
+                          onPress={() =>
+                            setSelectedReceptionIds((ids) =>
+                              selected
+                                ? ids.filter((id) => id !== reception.id)
+                                : [...ids, reception.id],
+                            )
+                          }
+                          style={{
+                            marginTop: 8,
+                            padding: 12,
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: selected ? "#0071e3" : "#86868b",
+                            backgroundColor: selected
+                              ? isDarkMode
+                                ? "#13253a"
+                                : "#eff6ff"
+                              : "transparent",
+                          }}
+                        >
+                          <Text style={dashboardStyles.producerName}>
+                            {selected ? "☑ " : "☐ "}
+                            {reception.folio} · {reception.orchard_name || "Sin huerta"}
+                          </Text>
+                          <Text style={dashboardStyles.producerMeta}>
+                            {kilos} kg × {formatCurrency(price)}/kg ={" "}
+                            {formatCurrency(kilos * price)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })
+                  )}
+                  <Text style={[dashboardStyles.fieldLabel, { marginTop: 12 }]}>
+                    Total calculado: {formatCurrency(selectedAmount)}
+                  </Text>
+                </>
+              )}
               <Text style={dashboardStyles.fieldLabel}>Fecha</Text>
               <TextInput
                 value={date}
@@ -752,30 +1127,34 @@ export default function PaymentScreen({ compact, isDarkMode = true }: { compact:
                 placeholderTextColor="#86868b"
                 style={dashboardStyles.formInput}
               />
-              <Text style={dashboardStyles.fieldLabel}>Estado del pago</Text>
-              <View style={dashboardStyles.paymentStatusOptions}>
-                {(["Pendiente", "Pagado"] as PaymentStatus[]).map((value) => (
-                  <Pressable
-                    key={value}
-                    onPress={() => setStatus(value)}
-                    style={[
-                      dashboardStyles.paymentStatusOption,
-                      status === value &&
-                        dashboardStyles.paymentStatusOptionSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        dashboardStyles.paymentStatusOptionText,
-                        status === value &&
-                          dashboardStyles.paymentStatusOptionTextSelected,
-                      ]}
-                    >
-                      {value}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              {editing?.id ? (
+                <>
+                  <Text style={dashboardStyles.fieldLabel}>Estado del pago</Text>
+                  <View style={dashboardStyles.paymentStatusOptions}>
+                    {(["Pendiente", "Pagado"] as PaymentStatus[]).map((value) => (
+                      <Pressable
+                        key={value}
+                        onPress={() => setStatus(value)}
+                        style={[
+                          dashboardStyles.paymentStatusOption,
+                          status === value &&
+                            dashboardStyles.paymentStatusOptionSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            dashboardStyles.paymentStatusOptionText,
+                            status === value &&
+                              dashboardStyles.paymentStatusOptionTextSelected,
+                          ]}
+                        >
+                          {value}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
               <View
                 style={[
                   dashboardStyles.formActions,
