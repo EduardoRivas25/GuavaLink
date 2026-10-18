@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { ActionGlyph } from '@/components/dashboard-glyphs';
 import { dashboardStyles } from '@/styles/dashboard';
 import { useCallback, useEffect, useState } from 'react';
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import QRCodeReal from '../components/qr-code';
+import { producerQrValue } from '../lib/domain';
 import { supabase } from '../lib/supabase';
 
 export const initialProducers: any[] = [
@@ -24,6 +26,7 @@ export const producerFullName = (p: any) => {
 
 export interface Producer {
   id: string;
+  folio: string;
   name: string;
   email: string | null;
   phone: string | null;
@@ -32,6 +35,18 @@ export interface Producer {
   status: 'Activo' | 'Inactivo';
   created_at?: string;
 }
+
+const normalizeProducer = (row: any): Producer => ({
+  id: String(row.id),
+  folio: row.folio || '',
+  name: `${row.nombres || ''} ${row.apellidos || ''}`.trim() || 'Productor sin nombre',
+  email: row.email || null,
+  phone: null,
+  municipality: row.origen || null,
+  qr_code: producerQrValue({ id: String(row.id) }),
+  status: row.active === false || row.status === 'Inactivo' ? 'Inactivo' : 'Activo',
+  created_at: row.created_at,
+});
 
 interface ProducersScreenProps {
   isDarkMode?: boolean;
@@ -62,11 +77,12 @@ export default function ProducersScreen({
   const fetchProducers = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('producers')
-        .select('*')
+        .select('id,folio,nombres,apellidos,origen,email,active,status,created_at')
         .order('created_at', { ascending: false });
-      setProducers((data as Producer[]) || []);
+      if (error) throw error;
+      setProducers((data || []).map(normalizeProducer));
     } catch {
     } finally {
       setLoading(false);
@@ -77,15 +93,13 @@ export default function ProducersScreen({
     fetchProducers();
   }, [fetchProducers]);
 
-  const makeNewQr = () => `GL-PROD-${Math.floor(1000 + Math.random() * 9000)}`;
-
   const openCreateModal = () => {
     setEditingProducer(null);
     setName('');
     setEmail('');
     setPhone('');
     setMunicipality('Uruapan / Jungapeo');
-    setQrCode(makeNewQr());
+    setQrCode('Se generará al guardar');
     setStatus('Activo');
     setModalVisible(true);
   };
@@ -105,22 +119,26 @@ export default function ProducersScreen({
     if (!name.trim()) return;
     setSaving(true);
     try {
+      const nameParts = name.trim().split(/\s+/);
       const payload = {
-        name: name.trim(),
+        folio: editingProducer?.folio || `PR-${Date.now().toString().slice(-8)}`,
+        nombres: nameParts.shift() || '',
+        apellidos: nameParts.join(' '),
         email: email.trim().toLowerCase() || null,
-        phone: phone.trim() || null,
-        municipality: municipality.trim() || null,
-        qr_code: qrCode.trim() || makeNewQr(),
+        origen: municipality.trim() || null,
+        active: status === 'Activo',
         status,
       };
 
+      let error;
       if (editingProducer) {
-        await supabase.from('producers').update(payload).eq('id', editingProducer.id);
+        ({ error } = await supabase.from('producers').update(payload).eq('id', editingProducer.id));
       } else {
-        await supabase.from('producers').insert([payload]);
+        ({ error } = await supabase.from('producers').insert([payload]));
       }
+      if (error) throw error;
       setModalVisible(false);
-      fetchProducers();
+      void fetchProducers();
     } finally {
       setSaving(false);
     }
@@ -134,8 +152,8 @@ export default function ProducersScreen({
   const filtered = producers.filter((p) => {
     const q = searchQuery.toLowerCase();
     return (
-      p.name.toLowerCase().includes(q) ||
-      p.qr_code.toLowerCase().includes(q) ||
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.qr_code || '').toLowerCase().includes(q) ||
       (p.municipality && p.municipality.toLowerCase().includes(q))
     );
   });
@@ -254,7 +272,7 @@ export default function ProducersScreen({
               <TextInput style={dashboardStyles.formInput} value={phone} onChangeText={setPhone} placeholderTextColor="#86868b" placeholder="452 123 4567" />
 
               <Text style={dashboardStyles.formLabel}>Código QR</Text>
-              <TextInput style={dashboardStyles.formInput} value={qrCode} onChangeText={setQrCode} placeholderTextColor="#86868b" />
+              <TextInput style={dashboardStyles.formInput} value={qrCode} editable={false} placeholderTextColor="#86868b" />
 
               <View style={dashboardStyles.formActions}>
                 <Pressable onPress={() => setModalVisible(false)}>

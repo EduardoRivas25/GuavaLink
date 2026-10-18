@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs, react-hooks/set-state-in-effect */
 import { roleHomeStyles as styles } from '@/styles/role-home';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { producerIdFromQr, producerName, producerQrValue } from '../lib/domain';
 import { supabase } from '../lib/supabase';
 
 interface PackerHomeProps {
@@ -40,10 +42,14 @@ export default function PackerHome({
   const [producers, setProducers] = useState<any[]>([]);
   const [receptions, setReceptions] = useState<any[]>([]);
   const [selectedProducer, setSelectedProducer] = useState<any | null>(null);
+  const [orchards, setOrchards] = useState<any[]>([]);
+  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [shipments, setShipments] = useState<any[]>([]);
+  const [selectedOrchard, setSelectedOrchard] = useState<any | null>(null);
+  const [selectedRegistration, setSelectedRegistration] = useState<any | null>(null);
+  const [selectedShipment, setSelectedShipment] = useState<any | null>(null);
 
   const [qrInput, setQrInput] = useState('');
-  const [orchardName, setOrchardName] = useState('');
-  const [shipmentFolio, setShipmentFolio] = useState('');
   const [boxes, setBoxes] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [incidents, setIncidents] = useState('');
@@ -58,7 +64,7 @@ export default function PackerHome({
       duration: 500,
       useNativeDriver: true,
     }).start();
-  }, [isDarkMode]);
+  }, [isDarkMode, spinAnim]);
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
@@ -66,8 +72,11 @@ export default function PackerHome({
   });
 
   const loadData = useCallback(async () => {
-    const { data: prodData } = await supabase.from('producers').select('*').order('name');
+    const { data: prodData } = await supabase.from('producers').select('id,folio,nombres,apellidos,email,status').order('nombres');
     setProducers(prodData || []);
+
+    const { data: shipmentData } = await supabase.from('shipments').select('*').neq('status', 'Entregado').order('created_at', { ascending: false });
+    setShipments(shipmentData || []);
 
     const { data: recData } = await supabase
       .from('receptions')
@@ -81,17 +90,28 @@ export default function PackerHome({
     loadData();
   }, [loadData]);
 
-  const matchProducerByQr = (code: string) => {
-    const clean = code.trim().toUpperCase();
+  const selectProducer = async (producer: any) => {
+    setSelectedProducer(producer);
+    setQrInput(producer.id);
+    setSelectedOrchard(null);
+    setSelectedRegistration(null);
+    const [orchardsResult, registrationsResult] = await Promise.all([
+      supabase.from('orchards').select('*').eq('producer_id', producer.id).eq('active', true).order('name'),
+      supabase.from('export_registrations').select('*').eq('producer_id', producer.id).order('created_at', { ascending: false }),
+    ]);
+    setOrchards(orchardsResult.data || []);
+    setRegistrations(registrationsResult.data || []);
+    setStatusMessage(`Productor identificado: ${producerName(producer)} (${producer.id})`);
+  };
+
+  const matchProducerByQr = async (code: string) => {
+    const clean = code.trim();
     setQrInput(clean);
-    const found = producers.find((p) => String(p.qr_code).toUpperCase() === clean);
-    if (found) {
-      setSelectedProducer(found);
-      setStatusMessage(`Productor identificado: ${found.name} (${found.qr_code})`);
-    } else {
-      setSelectedProducer(null);
-      setStatusMessage(`Código QR leído (${clean}). Selecciona al productor manualmente.`);
-    }
+    const producerId = producerIdFromQr(clean);
+    if (!producerId) { setSelectedProducer(null); setStatusMessage('El QR no contiene un ID de productor válido.'); return; }
+    const { data: found, error } = await supabase.from('producers').select('id,folio,nombres,apellidos,email,status').eq('id', producerId).maybeSingle();
+    if (error || !found) { setSelectedProducer(null); setStatusMessage('No se encontró el productor indicado por el QR.'); return; }
+    await selectProducer(found);
   };
 
   const handleOpenCamera = async () => {
@@ -110,17 +130,16 @@ export default function PackerHome({
     if (scannedLock) return;
     setScannedLock(true);
     setCameraOpen(false);
-    matchProducerByQr(data);
+    void matchProducerByQr(data);
   };
 
   const handleRegisterReception = async () => {
-    const producerName = selectedProducer?.name || qrInput.trim();
-    const producerQr = selectedProducer?.qr_code || qrInput.trim() || 'GL-PROD-S/N';
+    const selectedProducerName = producerName(selectedProducer);
     const numBoxes = Number(boxes);
     const numKg = Number(weightKg);
 
-    if (!producerName || !numBoxes || !numKg) {
-      setStatusMessage('Escanea un productor e ingresa cajas y kilos válidos.');
+    if (!selectedProducer || !selectedOrchard || !selectedRegistration || !selectedShipment || !numBoxes || !numKg) {
+      setStatusMessage('Escanea al productor y selecciona huerta, registro, embarque, cajas y kilos.');
       return;
     }
 
@@ -130,11 +149,15 @@ export default function PackerHome({
       const { error } = await supabase.from('receptions').insert([
         {
           folio,
-          producer_id: selectedProducer?.id || null,
-          producer_name: producerName,
-          producer_qr: producerQr,
-          orchard_name: orchardName.trim() || selectedProducer?.municipality || 'Huerta general',
-          shipment_folio: shipmentFolio.trim() || 'EMB-ACTUAL',
+          producer_id: selectedProducer.id,
+          producer_name: selectedProducerName,
+          producer_qr: producerQrValue(selectedProducer),
+          orchard_id: selectedOrchard.id,
+          orchard_name: selectedOrchard.name,
+          export_registration_id: selectedRegistration.id,
+          export_registration_number: selectedRegistration.registration_number,
+          shipment_id: selectedShipment.id,
+          shipment_folio: selectedShipment.folio,
           boxes: numBoxes,
           weight_kg: numKg,
           incidents: incidents.trim() || 'Sin daños',
@@ -147,7 +170,7 @@ export default function PackerHome({
       setBoxes('');
       setWeightKg('');
       setIncidents('');
-      setStatusMessage(`✅ Recepción ${folio} guardada: ${numBoxes} cajas (${numKg} kg) de ${producerName}.`);
+      setStatusMessage(`✅ Recepción ${folio} guardada: ${numBoxes} cajas (${numKg} kg) de ${selectedProducerName}.`);
       loadData();
     } catch (err: any) {
       setStatusMessage(err.message || 'Error al registrar la recepción.');
@@ -214,7 +237,8 @@ export default function PackerHome({
                 placeholder="GL-PROD-..."
                 placeholderTextColor={t.sub}
                 value={qrInput}
-                onChangeText={matchProducerByQr}
+                onChangeText={setQrInput}
+                onSubmitEditing={() => void matchProducerByQr(qrInput)}
               />
               <Pressable style={[styles.primaryButton, { marginTop: 0 }]} onPress={handleOpenCamera}>
                 <Text style={styles.primaryButtonText}>Escanear QR</Text>
@@ -229,13 +253,11 @@ export default function PackerHome({
                     key={p.id}
                     style={[styles.chip, { borderColor: t.border }, selected && styles.chipActive]}
                     onPress={() => {
-                      setSelectedProducer(p);
-                      setQrInput(p.qr_code);
-                      setStatusMessage(`Productor seleccionado: ${p.name}`);
+                      void selectProducer(p);
                     }}
                   >
                     <Text style={[styles.chipText, { color: t.sub }, selected && styles.chipTextActive]}>
-                      {p.name}
+                      {producerName(p)}
                     </Text>
                   </Pressable>
                 );
@@ -267,28 +289,14 @@ export default function PackerHome({
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: t.text }]}>Huerta</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: t.bg, borderColor: t.border, color: t.text }]}
-                  placeholder="Huerta origen"
-                  placeholderTextColor={t.sub}
-                  value={orchardName}
-                  onChangeText={setOrchardName}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: t.text }]}>Embarque (Folio)</Text>
-                <TextInput
-                  style={[styles.input, { backgroundColor: t.bg, borderColor: t.border, color: t.text }]}
-                  placeholder="EMB-..."
-                  placeholderTextColor={t.sub}
-                  value={shipmentFolio}
-                  onChangeText={setShipmentFolio}
-                />
-              </View>
-            </View>
+            <Text style={[styles.label, { color: t.text }]}>Huerta del productor *</Text>
+            <View style={styles.chipRow}>{orchards.map((item) => <Pressable key={item.id} style={[styles.chip, { borderColor: t.border }, selectedOrchard?.id === item.id && styles.chipActive]} onPress={() => setSelectedOrchard(item)}><Text style={[styles.chipText, { color: t.sub }, selectedOrchard?.id === item.id && styles.chipTextActive]}>{item.name}</Text></Pressable>)}</View>
+
+            <Text style={[styles.label, { color: t.text }]}>Registro de exportación *</Text>
+            <View style={styles.chipRow}>{registrations.map((item) => <Pressable key={item.id} style={[styles.chip, { borderColor: t.border }, selectedRegistration?.id === item.id && styles.chipActive]} onPress={() => setSelectedRegistration(item)}><Text style={[styles.chipText, { color: t.sub }, selectedRegistration?.id === item.id && styles.chipTextActive]}>{item.registration_number}</Text></Pressable>)}</View>
+
+            <Text style={[styles.label, { color: t.text }]}>Embarque creado por administración *</Text>
+            <View style={styles.chipRow}>{shipments.map((item) => <Pressable key={item.id} style={[styles.chip, { borderColor: t.border }, selectedShipment?.id === item.id && styles.chipActive]} onPress={() => setSelectedShipment(item)}><Text style={[styles.chipText, { color: t.sub }, selectedShipment?.id === item.id && styles.chipTextActive]}>{item.folio} · {item.destination}</Text></Pressable>)}</View>
 
             <Text style={[styles.label, { color: t.text }]}>Observaciones</Text>
             <TextInput
