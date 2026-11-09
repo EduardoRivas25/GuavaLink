@@ -1,7 +1,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { AdminGlyph, NavGlyph } from "@/components/dashboard-glyphs";
 import { supabase } from "@/lib/supabase";
-import { getThemedDashboardStyles } from "@/styles/dashboard";
+import {
+  getDashboardTheme,
+  getThemedDashboardStyles,
+} from "@/styles/dashboard";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +17,13 @@ import {
   View,
 } from "react-native";
 
-type ReportRow = { date: string; values: string[] };
+type ReportRow = {
+  date: string;
+  values: string[];
+  producer?: string;
+  shipment?: string;
+  status?: string;
+};
 type ReportDefinition = {
   title: string;
   description: string;
@@ -69,36 +78,49 @@ const reportLogoUri =
 
 export default function ReportsScreen({ compact, isDarkMode = true }: { compact: boolean; isDarkMode?: boolean }) {
   const dashboardStyles = getThemedDashboardStyles(isDarkMode);
+  const theme = getDashboardTheme(isDarkMode);
   const today = localDate();
   const [from, setFrom] = useState(`01/${today.slice(5, 7)}/${today.slice(0, 4)}`);
   const [to, setTo] = useState(toDisplayDate(today));
   const [rangeMessage, setRangeMessage] = useState("");
+  const [producerFilter, setProducerFilter] = useState("");
+  const [shipmentFilter, setShipmentFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [receptions, setReceptions] = useState<any[]>([]);
   const [orchards, setOrchards] = useState<any[]>([]);
   const [shipments, setShipments] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [paymentReceptionLinks, setPaymentReceptionLinks] = useState<any[]>([]);
 
   const loadReports = useCallback(async () => {
     setLoading(true);
     try {
-      const [receptionsResult, orchardsResult, shipmentsResult, paymentsResult] =
-        await Promise.all([
+      const [
+        receptionsResult,
+        orchardsResult,
+        shipmentsResult,
+        paymentsResult,
+        paymentReceptionLinksResult,
+      ] = await Promise.all([
           supabase.from("receptions").select("*").order("created_at", { ascending: false }),
           supabase.from("orchards").select("*").order("created_at", { ascending: false }),
           supabase.from("shipments").select("*").order("created_at", { ascending: false }),
           supabase.from("payments").select("*").order("created_at", { ascending: false }),
+          supabase.from("payment_receptions").select("payment_id,reception_id"),
         ]);
       const error =
         receptionsResult.error ||
         orchardsResult.error ||
         shipmentsResult.error ||
-        paymentsResult.error;
+        paymentsResult.error ||
+        paymentReceptionLinksResult.error;
       if (error) throw error;
       setReceptions(receptionsResult.data || []);
       setOrchards(orchardsResult.data || []);
       setShipments(shipmentsResult.data || []);
       setPayments(paymentsResult.data || []);
+      setPaymentReceptionLinks(paymentReceptionLinksResult.data || []);
       setRangeMessage("");
     } catch (error: any) {
       setRangeMessage(error.message || "No fue posible cargar los reportes.");
@@ -113,20 +135,42 @@ export default function ReportsScreen({ compact, isDarkMode = true }: { compact:
 
   const reports = useMemo<ReportDefinition[]>(() => {
     const orchardById = new Map(orchards.map((item) => [item.id, item]));
+    const receptionById = new Map(receptions.map((item) => [item.id, item]));
+    const paymentReceptionsByPayment = new Map<string, any[]>();
+    for (const link of paymentReceptionLinks) {
+      const reception = receptionById.get(link.reception_id);
+      if (!reception) continue;
+      const rows = paymentReceptionsByPayment.get(link.payment_id) || [];
+      rows.push(reception);
+      paymentReceptionsByPayment.set(link.payment_id, rows);
+    }
+    const producerByShipment = new Map<string, string[]>();
+    for (const reception of receptions) {
+      if (!reception.shipment_id || !reception.producer_name) continue;
+      const names = producerByShipment.get(reception.shipment_id) || [];
+      names.push(reception.producer_name);
+      producerByShipment.set(reception.shipment_id, names);
+    }
     return [
       {
         title: "Recepción de fruta",
         description: "Kilos, cajas y entregas por productor.",
         icon: "orchards",
-        headers: ["Fecha", "Productor", "Huerta", "Cajas", "Kilos recibidos"],
+        headers: ["Fecha", "Productor", "Huerta", "Cajas", "Kilos recibidos", "Kilos aceptados", "Estado", "Embarque"],
         rows: receptions.map((item) => ({
           date: item.fecha || item.created_at || "",
+          producer: item.producer_name || "",
+          shipment: item.shipment_folio || "",
+          status: item.status || "",
           values: [
             toDisplayDate(item.fecha || item.created_at),
             item.producer_name || "Sin productor",
             item.orchard_name || "Sin huerta",
             String(item.boxes ?? item.cajas ?? 0),
             String(item.weight_kg ?? item.kilos ?? 0),
+            item.accepted_weight_kg == null ? "Por validar" : String(item.accepted_weight_kg),
+            item.status || "Pendiente",
+            item.shipment_folio || "Sin asignar",
           ],
         })),
       },
@@ -134,17 +178,21 @@ export default function ReportsScreen({ compact, isDarkMode = true }: { compact:
         title: "Producción por huerta",
         description: "Origen y volumen de cada recepción.",
         icon: "farmers",
-        headers: ["Fecha", "Huerta", "Productor", "Hectáreas", "Kilos recibidos"],
+        headers: ["Fecha", "Huerta", "Productor", "Hectáreas", "Kilos recibidos", "Kilos aceptados"],
         rows: receptions.map((item) => {
           const orchard = orchardById.get(item.orchard_id);
           return {
             date: item.fecha || item.created_at || "",
+            producer: item.producer_name || orchard?.producer || "",
+            shipment: item.shipment_folio || "",
+            status: item.status || "",
             values: [
               toDisplayDate(item.fecha || item.created_at),
               item.orchard_name || orchard?.name || "Sin huerta",
               item.producer_name || orchard?.producer || "Sin productor",
               String(orchard?.hectares ?? 0),
               String(item.weight_kg ?? item.kilos ?? 0),
+              item.accepted_weight_kg == null ? "Por validar" : String(item.accepted_weight_kg),
             ],
           };
         }),
@@ -156,6 +204,9 @@ export default function ReportsScreen({ compact, isDarkMode = true }: { compact:
         headers: ["Fecha", "Folio", "Destino", "Kilos", "Estado"],
         rows: shipments.map((item) => ({
           date: item.created_at || "",
+          producer: [...new Set(producerByShipment.get(item.id) || [])].join(", "),
+          shipment: `${item.folio || ""} ${item.destination || ""}`,
+          status: item.status || "",
           values: [
             item.departure || toDisplayDate(item.created_at),
             item.folio || "",
@@ -172,6 +223,15 @@ export default function ReportsScreen({ compact, isDarkMode = true }: { compact:
         headers: ["Fecha", "Productor", "Folio", "Huerta", "Monto (MXN)", "Estado"],
         rows: payments.map((item) => ({
           date: item.date || item.created_at || "",
+          producer: item.producer_name || "",
+          shipment: [
+            ...new Set(
+              (paymentReceptionsByPayment.get(item.id) || [])
+                .map((reception) => reception.shipment_folio)
+                .filter(Boolean),
+            ),
+          ].join(", "),
+          status: item.status || "",
           values: [
             toDisplayDate(item.date || item.created_at),
             item.producer_name || "Sin productor",
@@ -183,7 +243,7 @@ export default function ReportsScreen({ compact, isDarkMode = true }: { compact:
         })),
       },
     ];
-  }, [orchards, payments, receptions, shipments]);
+  }, [orchards, paymentReceptionLinks, payments, receptions, shipments]);
 
   const selectedRange = () => {
     const start = parseInputDate(from);
@@ -206,7 +266,17 @@ export default function ReportsScreen({ compact, isDarkMode = true }: { compact:
     if (!range) return null;
     return report.rows.filter((row) => {
       const date = parseRowDate(row.date);
-      return date && date >= range.start && date <= range.end;
+      return (
+        date &&
+        date >= range.start &&
+        date <= range.end &&
+        (!producerFilter.trim() ||
+          row.producer?.toLowerCase().includes(producerFilter.trim().toLowerCase())) &&
+        (!shipmentFilter.trim() ||
+          row.shipment?.toLowerCase().includes(shipmentFilter.trim().toLowerCase())) &&
+        (!statusFilter.trim() ||
+          row.status?.toLowerCase().includes(statusFilter.trim().toLowerCase()))
+      );
     });
   };
 
@@ -289,7 +359,49 @@ export default function ReportsScreen({ compact, isDarkMode = true }: { compact:
           {rangeMessage}
         </Text>
       ) : null}
-      {loading ? <ActivityIndicator color="#0071e3" size="large" /> : null}
+      {loading ? <ActivityIndicator color={theme.primary} size="large" /> : null}
+      <View
+        style={[
+          dashboardStyles.reportCard,
+          {
+            width: "100%",
+            minHeight: 0,
+            padding: compact ? 16 : 22,
+            marginBottom: 20,
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Text style={dashboardStyles.reportTitle}>Filtros del reporte</Text>
+        <View style={{ flexDirection: compact ? "column" : "row", gap: 10, marginTop: 12 }}>
+          {[
+            { label: "Productor", value: producerFilter, setValue: setProducerFilter, placeholder: "Nombre del productor" },
+            { label: "Embarque", value: shipmentFilter, setValue: setShipmentFilter, placeholder: "Folio o destino" },
+            { label: "Estado", value: statusFilter, setValue: setStatusFilter, placeholder: "Pendiente, Validada..." },
+          ].map((filter) => (
+            <View key={filter.label} style={{ flex: 1 }}>
+              <Text style={dashboardStyles.formLabel}>{filter.label}</Text>
+              <TextInput
+                value={filter.value}
+                onChangeText={filter.setValue}
+                placeholder={filter.placeholder}
+                placeholderTextColor={theme.sub}
+                accessibilityLabel={`Filtrar por ${filter.label.toLowerCase()}`}
+                style={[
+                  dashboardStyles.reportDateInput,
+                  {
+                    width: "100%",
+                    color: theme.text,
+                    backgroundColor: theme.inputBg,
+                    borderColor: theme.inputBorder,
+                  },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      </View>
       <View
         style={[
           dashboardStyles.reportGrid,

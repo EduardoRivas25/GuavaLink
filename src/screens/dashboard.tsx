@@ -2,7 +2,10 @@
 import { NavGlyph, StatGlyph } from "@/components/dashboard-glyphs";
 import { AppBrand } from "@/components/app-brand";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { dashboardStyles, getDashboardTheme } from "@/styles/dashboard";
+import {
+  getDashboardTheme,
+  getThemedDashboardStyles,
+} from "@/styles/dashboard";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -43,6 +46,7 @@ export default function AdminDashboard({
   const compact = width < 800;
   const narrow = width < 520;
   const t = getDashboardTheme(isDarkMode);
+  const dashboardStyles = getThemedDashboardStyles(isDarkMode);
 
   const [activeSection, setActiveSection] = useState("overview");
   const [loading, setLoading] = useState(true);
@@ -178,7 +182,7 @@ export default function AdminDashboard({
             {loading ? (
               <ActivityIndicator
                 size="large"
-                color="#0071e3"
+                color={t.primary}
                 style={{ marginVertical: 60 }}
               />
             ) : (

@@ -2,15 +2,15 @@ import { StyleSheet } from "react-native";
 
 export function getDashboardTheme(isDark: boolean) {
   return {
-    bg: isDark ? "#000000" : "#f1f5f9",
+    bg: isDark ? "#000000" : "#f6f8fb",
     sidebar: isDark ? "#080808" : "#ffffff",
     card: isDark ? "#1d1d1f" : "#ffffff",
     cardAlt: isDark ? "#141416" : "#f8fafc",
     text: isDark ? "#f5f5f7" : "#0f172a",
-    sub: isDark ? "#86868b" : "#475569",
+    sub: isDark ? "#a1a1a6" : "#64748b",
     muted: isDark ? "#cccccc" : "#334155",
     border: isDark ? "#292929" : "#e2e8f0",
-    inputBg: isDark ? "#080808" : "#f8fafc",
+    inputBg: isDark ? "#101010" : "#f8fafc",
     inputBorder: isDark ? "#424245" : "#cbd5e1",
     active: isDark ? "#333336" : "#e2e8f0",
     badgeBg: isDark ? "#333336" : "#e2e8f0",
@@ -294,17 +294,17 @@ export const dashboardStyles = StyleSheet.create({
   },
   avatarText: { color: "#f5f5f7", fontSize: 11, fontWeight: "600" },
   content: {
-    paddingHorizontal: 38,
-    paddingTop: 44,
-    paddingBottom: 36,
+    paddingHorizontal: 34,
+    paddingTop: 36,
+    paddingBottom: 40,
     width: "100%",
     maxWidth: 1500,
     alignSelf: "center",
   },
   producerContent: {
-    paddingHorizontal: 38,
-    paddingTop: 38,
-    paddingBottom: 36,
+    paddingHorizontal: 34,
+    paddingTop: 32,
+    paddingBottom: 40,
     width: "100%",
     maxWidth: 1500,
     alignSelf: "center",
@@ -319,9 +319,9 @@ export const dashboardStyles = StyleSheet.create({
   reportCard: {
     width: "49%",
     minHeight: 294,
-    borderRadius: 28,
+    borderRadius: 22,
     backgroundColor: "#1d1d1f",
-    padding: 28,
+    padding: 24,
     marginBottom: 0,
     borderWidth: 1,
     borderColor: "transparent",
@@ -330,7 +330,7 @@ export const dashboardStyles = StyleSheet.create({
     width: "100%",
     minHeight: 270,
     padding: 22,
-    borderRadius: 24,
+    borderRadius: 20,
   },
   reportIcon: {
     width: 38,
@@ -339,7 +339,7 @@ export const dashboardStyles = StyleSheet.create({
     backgroundColor: "#333336",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   reportTitle: {
     color: "#f5f5f7",
@@ -411,8 +411,8 @@ export const dashboardStyles = StyleSheet.create({
   },
   producerTitle: {
     color: "#f5f5f7",
-    fontSize: 48,
-    lineHeight: 56,
+    fontSize: 42,
+    lineHeight: 50,
     fontWeight: "600",
     letterSpacing: -1.7,
   },
@@ -540,7 +540,7 @@ export const dashboardStyles = StyleSheet.create({
   producerStatCard: {
     width: 240,
     minHeight: 178,
-    borderRadius: 28,
+    borderRadius: 22,
     backgroundColor: "#1d1d1f",
     padding: 24,
     justifyContent: "space-between",
@@ -555,7 +555,7 @@ export const dashboardStyles = StyleSheet.create({
     minWidth: 0,
     minHeight: 132,
     padding: 16,
-    borderRadius: 22,
+    borderRadius: 18,
   },
   producerStatNote: { color: "#86868b", fontSize: 11, marginTop: 4 },
   producerToolbar: {
@@ -572,13 +572,20 @@ export const dashboardStyles = StyleSheet.create({
     marginBottom: 16,
   },
   userFilters: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  userTable: { minWidth: 980 },
-  userNameCol: { width: 245 },
-  userEmailCol: { width: 280 },
-  userRoleCol: { width: 180 },
-  userStatusCol: { width: 125 },
+  userTable: { minWidth: 900 },
+  producerDirectory: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderRadius: 16,
+    borderColor: "#292929",
+    backgroundColor: "#080808",
+  },
+  userNameCol: { width: 225 },
+  userEmailCol: { width: 180 },
+  userRoleCol: { width: 140 },
+  userStatusCol: { width: 120 },
   userActionsCol: {
-    width: 235,
+    width: 220,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
@@ -587,7 +594,7 @@ export const dashboardStyles = StyleSheet.create({
   userRoleLine: { flexDirection: "row", alignItems: "center", gap: 7 },
   userRoleLabel: { color: "#cccccc", fontSize: 11 },
   userActionButton: {
-    minHeight: 36,
+    minHeight: 38,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -777,12 +784,13 @@ export const dashboardStyles = StyleSheet.create({
     color: "#475569",
   },
   producerTableHeader: {
-    borderTopWidth: 1,
+    backgroundColor: "#141416",
+    borderTopWidth: 0,
     borderTopColor: "#333336",
-    minHeight: 48,
+    minHeight: 46,
   },
   producerTableRow: {
-    minHeight: 82,
+    minHeight: 76,
     flexDirection: "row",
     alignItems: "center",
     borderTopWidth: 1,
@@ -803,7 +811,7 @@ export const dashboardStyles = StyleSheet.create({
   },
   tableHeading: {
     color: "#86868b",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.4,
   },
@@ -819,11 +827,11 @@ export const dashboardStyles = StyleSheet.create({
   producerInitials: { color: "#ffffff", fontSize: 10, fontWeight: "700" },
   producerName: {
     color: "#f5f5f7",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
     flexShrink: 1,
   },
-  producerMeta: { color: "#86868b", fontSize: 12, flexShrink: 1 },
+  producerMeta: { color: "#86868b", fontSize: 13, flexShrink: 1 },
   producerSubMeta: { color: "#86868b", fontSize: 10, marginTop: 4 },
   statusBadge: {
     alignSelf: "flex-start",
@@ -1227,8 +1235,28 @@ export const dashboardStyles = StyleSheet.create({
   progressText: { color: "#0071e3", fontSize: 11, fontWeight: "600" },
 });
 
+const darkColors: Record<string, string> = {
+  "#000000": "#000000",
+  "#080808": "#080808",
+  "#101010": "#101010",
+  "#101713": "#141414",
+  "#111111": "#111111",
+  "#141414": "#141414",
+  "#141416": "#141416",
+  "#1d1d1f": "#1d1d1f",
+  "#292929": "#292929",
+  "#333336": "#333336",
+  "#424245": "#424245",
+  "#86868b": "#a1a1a6",
+  "#cccccc": "#cccccc",
+  "#f5f5f7": "#f5f5f7",
+  "#0071e3": "#0071e3",
+  "#2997ff": "#2997ff",
+  "rgba(0, 113, 227, 0.14)": "rgba(0, 113, 227, 0.14)",
+};
+
 const lightColors: Record<string, string> = {
-  "#000000": "#f1f5f9",
+  "#000000": "#f6f8fb",
   "#080808": "#ffffff",
   "#101010": "#ffffff",
   "#101713": "#f8fafc",
@@ -1240,27 +1268,55 @@ const lightColors: Record<string, string> = {
   "#333336": "#e2e8f0",
   "#424245": "#cbd5e1",
   "#86868b": "#64748b",
+  "rgba(245, 158, 11, 0.18)": "#fef3c7",
+  "rgba(34, 197, 94, 0.18)": "#dcfce7",
+  "rgba(59, 130, 246, 0.18)": "#dbeafe",
+  "rgba(100, 116, 139, 0.2)": "#e2e8f0",
+  "rgba(134,134,139,0.25)": "#cbd5e1",
+  "rgba(0, 113, 227, 0.14)": "#eff6ff",
+  "#0071e3": "#0071e3",
+  "#2997ff": "#2563eb",
   "#cccccc": "#334155",
   "#f5f5f7": "#0f172a",
 };
 
-const lightDashboardStyles = Object.fromEntries(
-  Object.entries(dashboardStyles).map(([name, style]) => [
-    name,
-    Object.fromEntries(
-      Object.entries(StyleSheet.flatten(style) || {}).map(([property, value]) => [
-        property,
-        typeof value === "string" &&
-        (property.toLowerCase().includes("color") || property === "color")
-          ? property === "color" && value === "#1d1d1f"
-            ? "#0f172a"
-            : lightColors[value.toLowerCase()] || value
-          : value,
-      ]),
-    ),
-  ]),
-) as typeof dashboardStyles;
+const createThemedDashboardStyles = (colors: Record<string, string>) =>
+  Object.fromEntries(
+    Object.entries(dashboardStyles).map(([name, style]) => [
+      name,
+      Object.fromEntries(
+        Object.entries(StyleSheet.flatten(style) || {}).map(
+          ([property, value]) => [
+            property,
+            typeof value === "string" &&
+            (property.toLowerCase().includes("color") || property === "color")
+              ? property === "color" && value.toLowerCase() === "#1d1d1f"
+                ? colors === lightColors
+                  ? "#15231a"
+                  : value
+                : colors[value.toLowerCase()] || value
+              : value,
+          ],
+        ),
+      ),
+    ]),
+  ) as typeof dashboardStyles;
+
+const darkDashboardStyles = createThemedDashboardStyles(darkColors);
+const lightDashboardBaseStyles = createThemedDashboardStyles(lightColors);
+const lightDashboardStyles = {
+  ...lightDashboardBaseStyles,
+  exportButton: {
+    ...lightDashboardBaseStyles.exportButton,
+    backgroundColor: "#0071e3",
+    borderColor: "#0071e3",
+  },
+  exportText: {
+    ...lightDashboardBaseStyles.exportText,
+    color: "#ffffff",
+  },
+} as typeof dashboardStyles;
 
 export function getThemedDashboardStyles(isDarkMode: boolean) {
-  return isDarkMode ? dashboardStyles : lightDashboardStyles;
+  return isDarkMode ? darkDashboardStyles : lightDashboardStyles;
 }
