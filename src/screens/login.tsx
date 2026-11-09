@@ -188,7 +188,7 @@ export default function LoginScreen() {
               <ThemeToggle isDarkMode={isDarkMode} onPress={toggleTheme} showLabel />
             </View>
 
-            <View style={[styles.main, compact && styles.mainCompact, short && styles.mainShort]}>
+            <View style={[styles.main, short && styles.mainShort]}>
               <View style={[styles.intro, compact && styles.introCompact]}>
                 <AppBrand isDarkMode={isDarkMode} style={styles.logo} />
                 
@@ -225,7 +225,7 @@ export default function LoginScreen() {
                 </View>
               </View>
 
-              <View style={[styles.loginCard, compact && styles.loginCardCompact, narrow && styles.loginCardNarrow, short && styles.loginCardShort, { backgroundColor: t.card, borderColor: t.border }]}>
+              <View style={[styles.loginCard, narrow && styles.loginCardNarrow, short && styles.loginCardShort, { backgroundColor: t.card, borderColor: t.border }]}>
                 <View style={styles.cardHeading}>
                   <View>
                     <Text style={styles.cardEyebrow}>ACCESO AL SISTEMA</Text>
